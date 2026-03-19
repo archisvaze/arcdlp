@@ -1,356 +1,597 @@
 <!doctype html>
 <html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        />
+        <title>ArcDLP</title>
+        <link
+            rel="stylesheet"
+            href="./index.css"
+        />
+    </head>
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ArcDLP</title>
-    <link rel="stylesheet" href="./index.css" />
-</head>
+    <body>
+        <div class="app">
+            <div
+                id="depBanner"
+                class="dep-banner"
+            ></div>
 
-<body>
-    <div class="app">
-        <div id="depBanner" class="dep-banner"></div>
+            <div class="titlebar"></div>
 
-        <div class="titlebar"></div>
-
-        <div class="main-area">
-            <!-- Tab Bar -->
-            <div class="tab-bar">
-                <button class="tab-btn active" data-tab="download" onclick="switchTab('download')">
-                    Download
-                </button>
-                <button class="tab-btn" data-tab="queue" onclick="switchTab('queue')">
-                    Queue
-                    <span id="queueCount" class="tab-count" style="display: none">0</span>
-                </button>
-                <button class="tab-btn" data-tab="history" onclick="switchTab('history')">
-                    History
-                    <span id="historyCount" class="tab-count" style="display: none">0</span>
-                </button>
-                <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">
-                    Settings
-                </button>
-                <button class="tab-btn" data-tab="about" onclick="switchTab('about')">
-                    About
-                </button>
-            </div>
-
-            <!-- Download Tab -->
-            <div id="tab-download" class="tab-panel active">
-                <div class="url-bar">
-                    <input id="urlInput" class="url-input" type="url" placeholder="Paste a video or playlist URL..."
-                        spellcheck="false" autocomplete="off" />
-                    <button id="clearBtn" class="btn btn-clear" onclick="doClear()" style="display: none">
-                        Clear
+            <div class="main-area">
+                <!-- Tab Bar -->
+                <div class="tab-bar">
+                    <button
+                        class="tab-btn active"
+                        data-tab="download"
+                        onclick="switchTab('download')"
+                    >
+                        Download
                     </button>
-                    <button id="fetchBtn" class="btn btn-primary" onclick="doFetch()">
-                        Fetch
+                    <button
+                        class="tab-btn"
+                        data-tab="queue"
+                        onclick="switchTab('queue')"
+                    >
+                        Queue
+                        <span
+                            id="queueCount"
+                            class="tab-count"
+                            style="display: none"
+                            >0</span
+                        >
                     </button>
-                </div>
-
-                <div id="errorMsg" class="error-msg"></div>
-
-                <!-- Single Video Card -->
-                <div id="videoCard" class="video-card">
-                    <div class="video-top">
-                        <div id="thumbWrap" class="video-thumb-wrap">
-                            <img id="vThumb" class="video-thumb" src="" alt="" />
-                            <div class="thumb-error">🎬</div>
-                            <div id="vDuration" class="video-duration"></div>
-                        </div>
-                        <div class="video-info">
-                            <div id="vTitle" class="video-title"></div>
-                            <div id="vChannel" class="video-channel"></div>
-                            <div id="vMeta" class="video-meta"></div>
-                        </div>
-                    </div>
-
-                    <div class="section-label">Download video</div>
-                    <div id="videoFormats" class="format-list"></div>
-
-                    <hr class="sep" />
-
-                    <div class="section-label">Extract audio</div>
-                    <div id="audioFormats" class="format-list"></div>
-
-                    <button id="dlBtn" class="btn-download" onclick="doDownload()">
-                        Add to Queue
+                    <button
+                        class="tab-btn"
+                        data-tab="history"
+                        onclick="switchTab('history')"
+                    >
+                        History
+                        <span
+                            id="historyCount"
+                            class="tab-count"
+                            style="display: none"
+                            >0</span
+                        >
+                    </button>
+                    <button
+                        class="tab-btn"
+                        data-tab="settings"
+                        onclick="switchTab('settings')"
+                    >
+                        Settings
+                    </button>
+                    <button
+                        class="tab-btn"
+                        data-tab="about"
+                        onclick="switchTab('about')"
+                    >
+                        About
                     </button>
                 </div>
 
-                <!-- Playlist Card -->
-                <div id="playlistCard" class="playlist-card">
-                    <div class="playlist-header">
-                        <div class="playlist-header-info">
-                            <div class="playlist-badge">PLAYLIST</div>
-                            <span id="plItemCount" class="playlist-count">0 items</span>
-                        </div>
-                        <div class="playlist-header-actions">
-                            <button class="btn-sm" onclick="playlistSelectAll()">
-                                Select all
-                            </button>
-                            <button class="btn-sm" onclick="playlistDeselectAll()">
-                                Deselect all
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="playlistItems" class="playlist-items"></div>
-
-                    <div id="plFooter" class="playlist-footer" style="display: none">
-                        <div class="playlist-format-row">
-                            <div class="section-label" style="margin-bottom: 0">
-                                Format for all
-                            </div>
-                            <select id="plFormatSelect" class="pl-format-select">
-                                <option value="bestvideo+bestaudio/best">Best quality</option>
-                                <option value="bestvideo[height<=2160]+bestaudio/best[height<=2160]">4K</option>
-                                <option value="bestvideo[height<=1440]+bestaudio/best[height<=1440]">2K</option>
-                                <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]" selected>
-                                    1080p
-                                </option>
-                                <option value="bestvideo[height<=720]+bestaudio/best[height<=720]">720p</option>
-                                <option value="bestvideo[height<=480]+bestaudio/best[height<=480]">480p</option>
-                                <option value="bestaudio/best" data-audio="true">
-                                    MP3 (audio only)
-                                </option>
-                            </select>
-                        </div>
-                        <div class="pl-format-note">If a video doesn't have the selected quality, the best available
-                            will be used.</div>
-                        <button id="plDownloadBtn" class="btn-download" onclick="doPlaylistDownload()">
-                            Add Selected to Queue
+                <!-- Download Tab -->
+                <div
+                    id="tab-download"
+                    class="tab-panel active"
+                >
+                    <div class="url-bar">
+                        <input
+                            id="urlInput"
+                            class="url-input"
+                            type="url"
+                            placeholder="Paste a video or playlist URL..."
+                            spellcheck="false"
+                            autocomplete="off"
+                        />
+                        <button
+                            id="clearBtn"
+                            class="btn btn-clear"
+                            onclick="doClear()"
+                            style="display: none"
+                        >
+                            Clear
+                        </button>
+                        <button
+                            id="fetchBtn"
+                            class="btn btn-primary"
+                            onclick="doFetch()"
+                        >
+                            Fetch
                         </button>
                     </div>
-                </div>
 
-                <div id="emptyState" class="empty-state">
-                    <div class="icon">⬇</div>
-                    <div class="title">Paste a video or playlist URL to get started</div>
-                    <div class="sub">YouTube, Vimeo, Twitter, and thousands more</div>
-                </div>
-            </div>
+                    <div
+                        id="errorMsg"
+                        class="error-msg"
+                    ></div>
 
-            <!-- Queue Tab -->
-            <div id="tab-queue" class="tab-panel">
-                <div id="queueToolbar" class="queue-toolbar" style="display: none">
-                    <div class="queue-toolbar-info">
-                        <span id="queueStatus" class="queue-status-text">0 items</span>
-                    </div>
-                    <div class="queue-toolbar-actions">
-                        <button class="btn-sm" onclick="doOpenFolder()">
-                            Open folder
-                        </button>
-                        <button id="qRetryFailedBtn" class="btn-sm" onclick="doRetryFailed()" style="display: none">
-                            Retry failed
-                        </button>
-                        <button id="qClearDoneBtn" class="btn-sm" onclick="doClearCompleted()" style="display: none">
-                            Clear done
-                        </button>
-                        <button id="qCancelAllBtn" class="btn-sm btn-sm-danger" onclick="doCancelAll()"
-                            style="display: none">
-                            Cancel all
-                        </button>
-                    </div>
-                </div>
-                <div id="queueItems" class="queue-items"></div>
-                <div id="queueEmpty" class="queue-empty">
-                    <div class="icon">📥</div>
-                    <div class="title">No downloads yet</div>
-                    <div class="sub">Fetch a video and click "Add to Queue" to start downloading</div>
-                </div>
-            </div>
-
-            <!-- History Tab -->
-            <div id="tab-history" class="tab-panel">
-                <div id="historyToolbar" class="history-toolbar" style="display: none">
-                    <span id="historyCountLabel" class="count"></span>
-                    <button class="btn-ghost" onclick="doClearHistory()">
-                        Clear all
-                    </button>
-                </div>
-                <div id="historyList" class="history-list"></div>
-                <div id="historyEmpty" class="history-empty">
-                    <div class="icon">📋</div>
-                    <div class="title">No history yet</div>
-                    <div class="sub">Videos you fetch will appear here</div>
-                </div>
-            </div>
-
-            <!-- Settings Tab -->
-            <div id="tab-settings" class="tab-panel">
-                <div class="settings-section">
-                    <div class="settings-section-title">Storage</div>
-                    <div class="settings-row">
-                        <div class="settings-row-info">
-                            <div class="settings-row-label">Download folder</div>
-                            <div id="settingsPath" class="settings-row-value">
-                                -
+                    <!-- Single Video Card -->
+                    <div
+                        id="videoCard"
+                        class="video-card"
+                    >
+                        <div class="video-top">
+                            <div
+                                id="thumbWrap"
+                                class="video-thumb-wrap"
+                            >
+                                <img
+                                    id="vThumb"
+                                    class="video-thumb"
+                                    src=""
+                                    alt=""
+                                />
+                                <div class="thumb-error">🎬</div>
+                                <div
+                                    id="vDuration"
+                                    class="video-duration"
+                                ></div>
+                            </div>
+                            <div class="video-info">
+                                <div
+                                    id="vTitle"
+                                    class="video-title"
+                                ></div>
+                                <div
+                                    id="vChannel"
+                                    class="video-channel"
+                                ></div>
+                                <div
+                                    id="vMeta"
+                                    class="video-meta"
+                                ></div>
                             </div>
                         </div>
-                        <div class="settings-row-action">
-                            <button class="btn-sm" onclick="doChooseFolder()">
-                                Change
+
+                        <div class="section-label">Download video</div>
+                        <div
+                            id="videoFormats"
+                            class="format-list"
+                        ></div>
+
+                        <hr class="sep" />
+
+                        <div class="section-label">Extract audio</div>
+                        <div
+                            id="audioFormats"
+                            class="format-list"
+                        ></div>
+
+                        <button
+                            id="dlBtn"
+                            class="btn-download"
+                            onclick="doDownload()"
+                        >
+                            Add to Queue
+                        </button>
+                    </div>
+
+                    <!-- Playlist Card -->
+                    <div
+                        id="playlistCard"
+                        class="playlist-card"
+                    >
+                        <div class="playlist-header">
+                            <div class="playlist-header-info">
+                                <div class="playlist-badge">PLAYLIST</div>
+                                <span
+                                    id="plItemCount"
+                                    class="playlist-count"
+                                    >0 items</span
+                                >
+                            </div>
+                            <div class="playlist-header-actions">
+                                <button
+                                    class="btn-sm"
+                                    onclick="playlistSelectAll()"
+                                >
+                                    Select all
+                                </button>
+                                <button
+                                    class="btn-sm"
+                                    onclick="playlistDeselectAll()"
+                                >
+                                    Deselect all
+                                </button>
+                            </div>
+                        </div>
+
+                        <div
+                            id="playlistItems"
+                            class="playlist-items"
+                        ></div>
+
+                        <div
+                            id="plFooter"
+                            class="playlist-footer"
+                            style="display: none"
+                        >
+                            <div class="playlist-format-row">
+                                <div
+                                    class="section-label"
+                                    style="margin-bottom: 0"
+                                >
+                                    Format for all
+                                </div>
+                                <select
+                                    id="plFormatSelect"
+                                    class="pl-format-select"
+                                >
+                                    <option value="bestvideo+bestaudio/best">Best quality</option>
+                                    <option value="bestvideo[height<=2160]+bestaudio/best[height<=2160]">4K</option>
+                                    <option value="bestvideo[height<=1440]+bestaudio/best[height<=1440]">2K</option>
+                                    <option
+                                        value="bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+                                        selected
+                                    >
+                                        1080p
+                                    </option>
+                                    <option value="bestvideo[height<=720]+bestaudio/best[height<=720]">720p</option>
+                                    <option value="bestvideo[height<=480]+bestaudio/best[height<=480]">480p</option>
+                                    <option
+                                        value="bestaudio/best"
+                                        data-audio="true"
+                                    >
+                                        MP3 (audio only)
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="pl-format-note">If a video doesn't have the selected quality, the best available will be used.</div>
+                            <button
+                                id="plDownloadBtn"
+                                class="btn-download"
+                                onclick="doPlaylistDownload()"
+                            >
+                                Add Selected to Queue
                             </button>
                         </div>
                     </div>
-                    <div class="settings-row">
-                        <div class="settings-row-info">
-                            <div class="settings-row-label">Open download folder</div>
+
+                    <div
+                        id="emptyState"
+                        class="empty-state"
+                    >
+                        <div class="icon">⬇</div>
+                        <div class="title">Paste a video or playlist URL to get started</div>
+                        <div class="sub">YouTube, Vimeo, Twitter, and thousands more</div>
+                    </div>
+                </div>
+
+                <!-- Queue Tab -->
+                <div
+                    id="tab-queue"
+                    class="tab-panel"
+                >
+                    <div
+                        id="queueToolbar"
+                        class="queue-toolbar"
+                        style="display: none"
+                    >
+                        <div class="queue-toolbar-info">
+                            <span
+                                id="queueStatus"
+                                class="queue-status-text"
+                                >0 items</span
+                            >
                         </div>
-                        <div class="settings-row-action">
-                            <button class="btn-sm" onclick="doOpenFolder()">
-                                Open
+                        <div class="queue-toolbar-actions">
+                            <button
+                                class="btn-sm"
+                                onclick="doOpenFolder()"
+                            >
+                                Open folder
+                            </button>
+                            <button
+                                id="qRetryFailedBtn"
+                                class="btn-sm"
+                                onclick="doRetryFailed()"
+                                style="display: none"
+                            >
+                                Retry failed
+                            </button>
+                            <button
+                                id="qClearDoneBtn"
+                                class="btn-sm"
+                                onclick="doClearCompleted()"
+                                style="display: none"
+                            >
+                                Clear done
+                            </button>
+                            <button
+                                id="qCancelAllBtn"
+                                class="btn-sm btn-sm-danger"
+                                onclick="doCancelAll()"
+                                style="display: none"
+                            >
+                                Cancel all
                             </button>
                         </div>
                     </div>
+                    <div
+                        id="queueItems"
+                        class="queue-items"
+                    ></div>
+                    <div
+                        id="queueEmpty"
+                        class="queue-empty"
+                    >
+                        <div class="icon">📥</div>
+                        <div class="title">No downloads yet</div>
+                        <div class="sub">Fetch a video and click "Add to Queue" to start downloading</div>
+                    </div>
                 </div>
 
-                <div class="settings-section">
-                    <div class="settings-section-title">YouTube Account</div>
-                    <div class="settings-row">
-                        <div class="settings-row-info">
-                            <div class="settings-row-label">YouTube sign-in</div>
-                            <div id="authStatus" class="settings-row-value">
-                                <span class="auth-signed-out">Not signed in</span>
+                <!-- History Tab -->
+                <div
+                    id="tab-history"
+                    class="tab-panel"
+                >
+                    <div
+                        id="historyToolbar"
+                        class="history-toolbar"
+                        style="display: none"
+                    >
+                        <span
+                            id="historyCountLabel"
+                            class="count"
+                        ></span>
+                        <button
+                            class="btn-ghost"
+                            onclick="doClearHistory()"
+                        >
+                            Clear all
+                        </button>
+                    </div>
+                    <div
+                        id="historyList"
+                        class="history-list"
+                    ></div>
+                    <div
+                        id="historyEmpty"
+                        class="history-empty"
+                    >
+                        <div class="icon">📋</div>
+                        <div class="title">No history yet</div>
+                        <div class="sub">Videos you fetch will appear here</div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div
+                    id="tab-settings"
+                    class="tab-panel"
+                >
+                    <div class="settings-section">
+                        <div class="settings-section-title">Storage</div>
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-label">Download folder</div>
+                                <div
+                                    id="settingsPath"
+                                    class="settings-row-value"
+                                >
+                                    -
+                                </div>
+                            </div>
+                            <div class="settings-row-action">
+                                <button
+                                    class="btn-sm"
+                                    onclick="doChooseFolder()"
+                                >
+                                    Change
+                                </button>
                             </div>
                         </div>
-                        <div class="settings-row-action">
-                            <button id="authActionBtn" class="btn-sm" onclick="doLogin()">
-                                Sign in
-                            </button>
-                        </div>
-                    </div>
-                    <div class="settings-hint">
-                        Sign in to access age-restricted, private, and members-only videos. Your credentials go directly
-                        to Google -
-                        this app never sees your password.
-                    </div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-section-title">Dependencies</div>
-                    <div class="settings-row">
-                        <div class="settings-row-info">
-                            <div class="settings-row-label">yt-dlp</div>
-                            <div id="depYtdlpPath" class="settings-row-value">
-                                Checking...
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-label">Open download folder</div>
                             </div>
-                        </div>
-                        <div class="settings-row-action">
-                            <div id="depYtdlpStatus" class="settings-dep-status">
-                                <span class="dep-dot"></span>
+                            <div class="settings-row-action">
+                                <button
+                                    class="btn-sm"
+                                    onclick="doOpenFolder()"
+                                >
+                                    Open
+                                </button>
                             </div>
                         </div>
                     </div>
-                    <div class="settings-row">
-                        <div class="settings-row-info">
-                            <div class="settings-row-label">ffmpeg</div>
-                            <div id="depFfmpegPath" class="settings-row-value">
-                                Checking...
+
+                    <div class="settings-section">
+                        <div class="settings-section-title">YouTube Account</div>
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-label">YouTube sign-in</div>
+                                <div
+                                    id="authStatus"
+                                    class="settings-row-value"
+                                >
+                                    <span class="auth-signed-out">Not signed in</span>
+                                </div>
+                            </div>
+                            <div class="settings-row-action">
+                                <button
+                                    id="authActionBtn"
+                                    class="btn-sm"
+                                    onclick="doLogin()"
+                                >
+                                    Sign in
+                                </button>
                             </div>
                         </div>
-                        <div class="settings-row-action">
-                            <div id="depFfmpegStatus" class="settings-dep-status">
-                                <span class="dep-dot"></span>
+                        <div class="settings-hint">
+                            Sign in to access age-restricted, private, and members-only videos. Your credentials go directly to Google -
+                            this app never sees your password.
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <div class="settings-section-title">Dependencies</div>
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-label">yt-dlp</div>
+                                <div
+                                    id="depYtdlpPath"
+                                    class="settings-row-value"
+                                >
+                                    Checking...
+                                </div>
+                            </div>
+                            <div class="settings-row-action">
+                                <div
+                                    id="depYtdlpStatus"
+                                    class="settings-dep-status"
+                                >
+                                    <span class="dep-dot"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-label">ffmpeg</div>
+                                <div
+                                    id="depFfmpegPath"
+                                    class="settings-row-value"
+                                >
+                                    Checking...
+                                </div>
+                            </div>
+                            <div class="settings-row-action">
+                                <div
+                                    id="depFfmpegStatus"
+                                    class="settings-dep-status"
+                                >
+                                    <span class="dep-dot"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- About Tab -->
-            <div id="tab-about" class="tab-panel">
-                <div class="about-hero">
-                    <div class="about-icon">⬇</div>
-                    <div class="about-name">ArcDLP</div>
-                    <div id="aboutVersion" class="about-version">
-                        -
+                <!-- About Tab -->
+                <div
+                    id="tab-about"
+                    class="tab-panel"
+                >
+                    <div class="about-hero">
+                        <div class="about-icon">⬇</div>
+                        <div class="about-name">ArcDLP</div>
+                        <div
+                            id="aboutVersion"
+                            class="about-version"
+                        >
+                            -
+                        </div>
                     </div>
-                </div>
 
-                <div class="about-description">
-                    A simple desktop app for downloading videos and audio from YouTube, Vimeo, Twitter, and thousands of
-                    other sites.
-                    Powered by yt-dlp.
-                </div>
-
-                <div class="about-section">
-                    <div class="about-section-title">How it works</div>
-                    <div class="about-text">
-                        Paste a video or playlist URL, pick your preferred quality, and download. Videos are saved as
-                        MP4, audio as MP3.
-                        You can queue multiple downloads and they'll process one at a time - if one fails, the rest keep
-                        going.
+                    <div class="about-description">
+                        A simple desktop app for downloading videos and audio from YouTube, Vimeo, Twitter, and thousands of other sites.
+                        Powered by yt-dlp.
                     </div>
-                </div>
 
-                <div class="about-section">
-                    <div class="about-section-title">Where are my downloads?</div>
-                    <div class="about-text">
-                        By default, files are saved to your Downloads folder in a subfolder. You can change this in
-                        <a href="#" onclick="
+                    <div class="about-section">
+                        <div class="about-section-title">How it works</div>
+                        <div class="about-text">
+                            Paste a video or playlist URL, pick your preferred quality, and download. Videos are saved as MP4, audio as MP3.
+                            You can queue multiple downloads and they'll process one at a time - if one fails, the rest keep going.
+                        </div>
+                    </div>
+
+                    <div class="about-section">
+                        <div class="about-section-title">Where are my downloads?</div>
+                        <div class="about-text">
+                            By default, files are saved to your Downloads folder in a subfolder. You can change this in
+                            <a
+                                href="#"
+                                onclick="
                                     switchTab('settings');
                                     return false;
-                                ">Settings</a>. Use the "Open folder" button in the Queue tab to find your files
-                        quickly.
+                                "
+                                >Settings</a
+                            >. Use the "Open folder" button in the Queue tab to find your files quickly.
+                        </div>
                     </div>
-                </div>
 
-                <div class="about-links">
-                    <a class="about-link" href="#" onclick="
+                    <div class="about-links">
+                        <a
+                            class="about-link"
+                            href="#"
+                            onclick="
                                 openExternal('https://github.com/archisvaze/arcdlp');
                                 return false;
-                            ">
-                        <span class="about-link-icon">📦</span> GitHub
-                    </a>
-                    <a class="about-link" href="#" onclick="
+                            "
+                        >
+                            <span class="about-link-icon">📦</span> GitHub
+                        </a>
+                        <a
+                            class="about-link"
+                            href="#"
+                            onclick="
                                 openExternal('https://github.com/archisvaze/arcdlp/issues');
                                 return false;
-                            ">
-                        <span class="about-link-icon">🐛</span> Report a Bug
-                    </a>
-                    <a class="about-link" href="#" onclick="
+                            "
+                        >
+                            <span class="about-link-icon">🐛</span> Report a Bug
+                        </a>
+                        <a
+                            class="about-link"
+                            href="#"
+                            onclick="
                                 openExternal('https://github.com/sponsors/archisvaze');
                                 return false;
-                            ">
-                        <span class="about-link-icon">💜</span> Sponsor on GitHub
-                    </a>
-                    <a class="about-link" href="#" onclick="
+                            "
+                        >
+                            <span class="about-link-icon">💜</span> Sponsor on GitHub
+                        </a>
+                        <a
+                            class="about-link"
+                            href="#"
+                            onclick="
                                 openExternal('https://buymeacoffee.com/archisvaze');
                                 return false;
-                            ">
-                        <span class="about-link-icon">☕</span> Buy Me a Coffee
-                    </a>
-                </div>
+                            "
+                        >
+                            <span class="about-link-icon">☕</span> Buy Me a Coffee
+                        </a>
+                    </div>
 
-                <div class="about-footer-text">
-                    Open source. Everything runs locally on your machine. No data is sent anywhere.
-                    <br />
-                    Powered by
-                    <a href="#" onclick="
+                    <div class="about-footer-text">
+                        Open source. Everything runs locally on your machine. No data is sent anywhere.
+                        <br />
+                        Powered by
+                        <a
+                            href="#"
+                            onclick="
                                 openExternal('https://github.com/yt-dlp/yt-dlp');
                                 return false;
-                            ">yt-dlp</a>
-                </div>
-            </div>
-
-            <!-- Log Panel -->
-            <div class="log-panel">
-                <div class="log-header">
-                    <div class="log-header-title">Log</div>
-                    <div class="log-header-actions">
-                        <button onclick="clearLog()">Clear</button>
-                        <button onclick="doOpenFolder()">Open folder</button>
+                            "
+                            >yt-dlp</a
+                        >
                     </div>
                 </div>
-                <div id="logBody" class="log-body"></div>
+
+                <!-- Log Panel -->
+                <div class="log-panel">
+                    <div class="log-header">
+                        <div class="log-header-title">Log</div>
+                        <div class="log-header-actions">
+                            <button onclick="clearLog()">Clear</button>
+                            <button onclick="doOpenFolder()">Open folder</button>
+                        </div>
+                    </div>
+                    <div
+                        id="logBody"
+                        class="log-body"
+                    ></div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <script src="./renderer.js"></script>
-</body>
-
+        <script src="./renderer.js"></script>
+    </body>
 </html>
