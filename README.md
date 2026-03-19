@@ -327,3 +327,4 @@ great contributions:
 - [Electron](https://www.electronjs.org/) - Desktop app framework
 - [ffmpeg](https://ffmpeg.org/) - Audio/video processing (bundled via
   ffmpeg-static)
+- [electron-icon-builder](https://github.com/safu9/electron-icon-builder) - Made icon with Canva and exported the icon files via electron-icon-builder
