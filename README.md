@@ -1,8 +1,27 @@
+<div align="center">
+
+<img src="build/icon.png" width="128" alt="ArcDLP icon" />
+
 # ArcDLP
 
-Open-source desktop video downloader powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality, download. Supports YouTube, Vimeo, Twitter/X, SoundCloud, and [thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+Open-source desktop video downloader powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+Paste a URL, pick a quality, download.
+
+Supports YouTube, Vimeo, Twitter/X, SoundCloud, and [thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 Everything runs locally on your machine - no cloud, no accounts, no tracking.
+
+**[Download](https://github.com/archisvaze/arcdlp/releases/latest)**
+
+</div>
+
+<br/>
+
+<p align="center">
+  <img src="screenshots/Screenshot1.png" width="48%" alt="ArcDLP video download" />
+  &nbsp;&nbsp;
+  <img src="screenshots/Screenshot2.png" width="48%" alt="ArcDLP playlist" />
+</p>
 
 ## Download & Install
 
