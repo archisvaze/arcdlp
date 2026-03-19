@@ -7,7 +7,7 @@ const fs = require('fs');
 const { log, logError } = require('./utils');
 const cookies = require('./cookies');
 
-/** Append --cookies flag if user is signed in */
+// Append --cookies flag if user is signed in
 async function appendCookieArgs(args) {
     try {
         const cookieFile = await cookies.getCookieFile();
@@ -253,8 +253,6 @@ function buildPresets(formats) {
         [240, ''],
     ];
 
-    // Format string: bestvideo+bestaudio tries split streams first (YouTube),
-    // /best fallback catches muxed streams (PornHub, Twitter, etc.)
     for (const [h, tag] of resMap) {
         if (!heights.has(h)) continue;
         const size = estimateSize(h);
@@ -268,7 +266,6 @@ function buildPresets(formats) {
         });
     }
 
-    // Audio
     const audioBest = formats
         .filter((f) => f.vcodec === 'none' && f.acodec !== 'none' && f.filesize)
         .sort((a, b) => (b.tbr || 0) - (a.tbr || 0))[0];
@@ -524,7 +521,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
     });
 }
 
-/** Detect if a URL looks like a playlist (heuristic, no network) */
+// Detect if a URL looks like a playlist
 function looksLikePlaylist(url) {
     if (!url) return false;
     const u = url.toLowerCase();

@@ -264,10 +264,8 @@ class DownloadQueue {
             callbacks,
         );
 
-        // Store proc ref so we can cancel
         this._currentProc = callbacks._proc;
 
-        // Poll for proc ref (it's set async after spawn)
         const pollInterval = setInterval(() => {
             if (callbacks._proc) {
                 this._currentProc = callbacks._proc;

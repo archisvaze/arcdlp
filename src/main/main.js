@@ -83,7 +83,6 @@ app.whenReady().then(() => {
         onQueueUpdate: (data) => send('queue:update', data),
         onItemComplete: (item) => {
             // Add completed downloads to history, skip if already there
-            // (single-video fetches save a full entry via video:fetch, don't overwrite with lightweight one)
             const history = store.get('history') || [];
             const alreadyExists = history.some((h) => h.info.webpage_url === item.url);
             if (!alreadyExists) {
