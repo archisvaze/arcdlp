@@ -1101,12 +1101,12 @@ body {
     flex-shrink: 0;
 }
 
-.pl-item-check input:checked + .pl-check-box {
+.pl-item-check input:checked+.pl-check-box {
     background: var(--accent);
     border-color: var(--accent);
 }
 
-.pl-item-check input:checked + .pl-check-box::after {
+.pl-item-check input:checked+.pl-check-box::after {
     content: "✓";
     color: white;
     font-size: 11px;

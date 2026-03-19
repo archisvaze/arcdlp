@@ -13,6 +13,9 @@
 # production
 /dist
 
+# downloads yt-dlp dependecy here
+/bin
+
 # misc
 .DS_Store
 *.pem
