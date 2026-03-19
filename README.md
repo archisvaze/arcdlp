@@ -1,22 +1,54 @@
 # ArcDLP
 
-An open-source electron desktop video downloader app powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality, download. Supports YouTube, Vimeo, Twitter/X, SoundCloud, and [thousands of other sites](https://github.com/yt-dlp/yt-dlp/supportedsites.md).
+A desktop video downloader powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality, download. Supports YouTube, Vimeo, Twitter/X, SoundCloud, and [thousands of other sites](https://github.com/yt-dlp/yt-dlp/supportedsites.md).
 
 Everything runs locally on your machine - no cloud, no accounts, no tracking.
 
-## Download
-
-Grab the latest release for your platform:
-
-| Platform    | File             | Notes                          |
-| ----------- | ---------------- | ------------------------------ |
-| **macOS**   | `.dmg`           | Mount and drag to Applications |
-| **Windows** | `.exe` installer | One-click NSIS installer (x64) |
-| **Linux**   | `.AppImage`      | Make executable and run (x64)  |
+## Download & Install
 
 **[Download the latest release](https://github.com/archisvaze/arcdlp/releases/latest)**
 
+Go to the Releases page, scroll down to **Assets**, and click the file for your system:
+
+- **macOS**: `ArcDLP-x.x.x.dmg`
+- **Windows**: Coming soon
+- **Linux**: Coming soon
+
 No dependencies to install. yt-dlp and ffmpeg are bundled inside the app.
+
+### macOS
+
+1. Download the `.dmg` file
+2. Open it and drag ArcDLP to your Applications folder
+3. Open ArcDLP
+
+macOS will show a security warning the first time because the app is not code-signed yet. This is normal.
+
+To fix it:
+
+1. Click **Done**
+2. Open **System Settings**
+3. Go to **Privacy & Security**
+4. Scroll down and click **Open Anyway** next to ArcDLP
+5. Enter your password
+
+You only need to do this once.
+
+### Windows (coming soon)
+
+Windows may show **"Windows protected your PC"** the first time. This is normal for new unsigned apps.
+
+1. Run the installer
+2. Click **More info**
+3. Click **Run anyway**
+
+### Linux (coming soon)
+
+1. Download the `.AppImage` file
+2. Right-click the file, go to Properties, Permissions, and check **Allow executing file as program** (or run `chmod +x ArcDLP-*.AppImage`)
+3. Double-click to run
+
+No installation needed, the AppImage runs directly.
 
 ## Features
 
