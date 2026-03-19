@@ -7,6 +7,7 @@ const Store = require('electron-store');
 const ytdlp = require('./ytdlp');
 const cookies = require('./cookies');
 const { queue } = require('./queue');
+const updater = require('./updater');
 const { DEV_MODE, log, logError } = require('./utils');
 
 const APP_NAME = 'ArcDLP';
@@ -64,6 +65,19 @@ function createWindow() {
         mainWindow.show();
         if (DEV_MODE) mainWindow.webContents.openDevTools({ mode: 'detach' });
         log('Window ready');
+
+        // Check for updates after a 3 sec
+        setTimeout(async () => {
+            try {
+                const result = await updater.checkForUpdates(app.getVersion());
+                if (result.hasUpdate) {
+                    log('Update available:', result.latest);
+                    send('update-available', result);
+                }
+            } catch (err) {
+                logError('Startup update check failed:', err.message);
+            }
+        }, 3000);
     });
 
     mainWindow.on('closed', () => {
@@ -214,6 +228,14 @@ ipcMain.handle('app:info', () => ({
     platform: process.platform,
     arch: process.arch,
 }));
+
+ipcMain.handle('app:checkForUpdates', async () => {
+    const result = await updater.checkForUpdates(app.getVersion());
+    if (result.hasUpdate) {
+        send('update-available', result);
+    }
+    return result;
+});
 
 // Auth
 

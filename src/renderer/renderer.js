@@ -16,6 +16,7 @@ let queueData = {
 let hasAutoSwitchedToQueue = false;
 
 let isSignedIn = false;
+let updateInfo = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -129,6 +130,12 @@ window.api.onQueueItemUpdate((item) => {
 
 // Playlist streaming
 window.api.onPlaylistItem(({ item, count }) => {
+    // Update notification
+    window.api.onUpdateAvailable((data) => {
+        updateInfo = data;
+        addLog(`Update available: v${data.latest}`, 'highlight');
+        showUpdateBanner();
+    });
     if (!playlistItems.find((i) => i.id === item.id)) {
         playlistItems.push(item);
         playlistSelected.add(item.id);
@@ -971,6 +978,74 @@ async function loadAbout() {
         const info = await window.api.getAppInfo();
         $('aboutVersion').textContent = `v${info.version} · ${info.platform}/${info.arch}${info.devMode ? ' · dev' : ''}`;
     } catch {}
+
+    // Show update status if already known
+    renderAboutUpdate();
+}
+
+function showUpdateBanner() {
+    if (!updateInfo || !updateInfo.hasUpdate) return;
+
+    const banner = $('updateBanner');
+    if (!banner) return;
+
+    banner.innerHTML =
+        `<span>A new version is available: <strong>v${escapeHtml(updateInfo.latest)}</strong></span>` +
+        `<button class="btn-sm" onclick="openExternal('${escapeHtml(updateInfo.url)}')">Download</button>` +
+        `<button class="update-dismiss" onclick="dismissUpdateBanner()" title="Dismiss">×</button>`;
+    banner.classList.add('visible');
+}
+
+function dismissUpdateBanner() {
+    const banner = $('updateBanner');
+    if (banner) banner.classList.remove('visible');
+}
+
+function renderAboutUpdate() {
+    const el = $('aboutUpdateStatus');
+    if (!el) return;
+
+    if (updateInfo && updateInfo.hasUpdate) {
+        el.innerHTML =
+            `<div class="about-update-available">` +
+            `<span>v${escapeHtml(updateInfo.latest)} is available</span>` +
+            `<a href="#" onclick="openExternal('${escapeHtml(updateInfo.url)}'); return false;">View release</a>` +
+            `</div>`;
+    } else if (updateInfo && !updateInfo.hasUpdate && !updateInfo.error) {
+        el.textContent = "You're on the latest version";
+    } else {
+        el.textContent = '';
+    }
+}
+
+async function doCheckForUpdates() {
+    const btn = $('checkUpdateBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Checking...';
+    }
+
+    try {
+        const result = await window.api.checkForUpdates();
+        updateInfo = result;
+        renderAboutUpdate();
+
+        if (result.hasUpdate) {
+            addLog(`Update available: v${result.latest}`, 'highlight');
+            showUpdateBanner();
+        } else if (result.error) {
+            addLog('Update check failed: ' + result.error, 'error');
+        } else {
+            addLog("You're on the latest version ✓", 'success');
+        }
+    } catch (e) {
+        addLog('Update check failed: ' + e.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Check for updates';
+        }
+    }
 }
 
 async function init() {

@@ -30,8 +30,8 @@ Everything runs locally on your machine - no cloud, no accounts, no tracking.
 Go to the Releases page, scroll down to **Assets**, and click the file for your system:
 
 - **macOS**: `ArcDLP-x.x.x.dmg`
-- **Windows**: Coming soon
-- **Linux**: Coming soon
+- **Windows**: `ArcDLP-Setup-x.x.x.exe`
+- **Linux**: `ArcDLP-x.x.x.AppImage`
 
 No dependencies to install. yt-dlp and ffmpeg are bundled inside the app.
 
@@ -53,21 +53,25 @@ To fix it:
 
 You only need to do this once.
 
-### Windows (coming soon)
+### Windows
 
-Windows may show **"Windows protected your PC"** the first time. This is normal for new unsigned apps.
+1. Download and run the `.exe` installer
+2. Windows may show **"Windows protected your PC"** — this is normal for new unsigned apps
+3. Click **More info**, then click **Run anyway**
+4. The installer will set up ArcDLP and create a shortcut automatically
 
-1. Run the installer
-2. Click **More info**
-3. Click **Run anyway**
+ArcDLP installs per-user (no admin required) and can be uninstalled from Settings > Apps.
 
-### Linux (coming soon)
+### Linux
 
 1. Download the `.AppImage` file
-2. Right-click the file, go to Properties, Permissions, and check **Allow executing file as program** (or run `chmod +x ArcDLP-*.AppImage`)
+2. Make it executable: right-click → Properties → Permissions → check **Allow executing file as program**, or run:
+    ```bash
+    chmod +x ArcDLP-*.AppImage
+    ```
 3. Double-click to run
 
-No installation needed, the AppImage runs directly.
+No installation needed — the AppImage runs directly. You can move it anywhere you like (e.g. `~/Applications/`).
 
 ## Features
 
@@ -77,6 +81,7 @@ No installation needed, the AppImage runs directly.
 - **YouTube sign-in** - Access age-restricted, private, and members-only content through a built-in browser login window. Credentials go directly to Google
 - **Download history** - Quick access to previously fetched videos with cached metadata
 - **Multi-site compatibility** - Works with any site yt-dlp supports. Format detection adapts automatically to different streaming approaches across sites
+- **Update notifications** - The app checks for new releases on startup and lets you know when an update is available
 - **Light and dark mode** - Follows your system preference. macOS vibrancy supported
 
 ## Usage
@@ -135,15 +140,25 @@ npm install
 
 To build for a different platform's ffmpeg binary:
 
-```bash
-# Windows (x64)
-npm_config_platform=win32 npm_config_arch=x64 npm install
+### ffmpeg-static Platform Setup
 
-# Linux (x64)
-npm_config_platform=linux npm_config_arch=x64 npm install
-```
+`ffmpeg-static` downloads a platform-specific binary during `npm install`. On macOS, this works automatically, no setup needed.
 
-`npm install` automatically downloads the yt-dlp binary for your platform via the postinstall script. ffmpeg is bundled via `ffmpeg-static`.
+On Windows and Linux, set environment variables **before** `npm install` to ensure the correct binary is downloaded:
+
+**Windows (x64):**
+
+    $env:npm_config_platform = "win32"
+    $env:npm_config_arch = "x64"
+    rm -r -Force node_modules
+    npm install
+
+**Linux (x64):**
+
+    export npm_config_platform=linux
+    export npm_config_arch=x64
+
+`ffmpeg-static` only downloads one binary per install, matched to the configured arch. This means you can't build both x64 and arm64 Linux AppImages from a single `npm install`
 
 ### Development
 
@@ -176,6 +191,7 @@ arcdlp/
 │   │   ├── ytdlp.js          # yt-dlp integration: spawn, parse, download
 │   │   ├── queue.js          # Sequential download queue with per-item state
 │   │   ├── cookies.js        # YouTube cookie auth and Netscape format export
+│   │   ├── updater.js        # Update checker via GitHub Releases API
 │   │   └── utils.js          # Dev mode flag, logging helpers
 │   └── renderer/
 │       ├── index.html        # UI structure
@@ -242,7 +258,6 @@ yt-dlp supports a lot more than basic downloading. These features would make gre
 
 #### App-Level Features
 
-- **Auto-update** - Check for new ArcDLP releases via GitHub Releases API
 - **Keyboard shortcuts** - Quick access to common actions
 - **Multi-site authentication** - Expand the cookie login flow beyond YouTube
 - **Playlist detection for more sites** - Currently conservative (YouTube and SoundCloud only)

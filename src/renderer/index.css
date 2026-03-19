@@ -632,6 +632,44 @@ body {
     }
 }
 
+.update-banner {
+    display: none;
+    padding: 10px 32px;
+    background: var(--accent-soft);
+    border-bottom: 1px solid rgba(0, 122, 255, 0.15);
+    font-size: 12px;
+    color: var(--accent);
+    align-items: center;
+    gap: 12px;
+}
+
+.update-banner.visible {
+    display: flex;
+}
+
+.update-banner span {
+    flex: 1;
+}
+
+.update-banner .btn-sm {
+    flex-shrink: 0;
+}
+
+.update-dismiss {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: var(--accent);
+    opacity: 0.6;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.update-dismiss:hover {
+    opacity: 1;
+}
+
 /* History Tab */
 
 .history-toolbar {
@@ -1396,6 +1434,31 @@ body {
 .about-version {
     font-size: 13px;
     color: var(--text-3);
+}
+
+.about-update-status {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 6px;
+    min-height: 16px;
+}
+
+.about-update-available {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.about-update-available a {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.about-update-btn {
+    margin-top: 10px;
 }
 
 .about-description {

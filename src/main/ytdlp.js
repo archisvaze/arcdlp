@@ -323,6 +323,10 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat },
         args.push('-x', '--audio-format', audioFormat || 'mp3');
     } else if (formatId) {
         args.push('-f', formatId, '--merge-output-format', 'mp4');
+        // Re-encode audio to AAC for universal playback.
+        // YouTube serves Opus audio which Windows Media Player can't decode in MP4.
+        // AAC is fast to encode and works on every player on every OS.
+        args.push('--postprocessor-args', 'ffmpeg:-c:v copy -c:a aac');
     }
 
     await appendCookieArgs(args);

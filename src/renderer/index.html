@@ -11,6 +11,7 @@
 <body>
     <div class="app">
         <div id="depBanner" class="dep-banner"></div>
+        <div id="updateBanner" class="update-banner"></div>
 
         <div class="titlebar"></div>
 
@@ -268,6 +269,10 @@
                     <div id="aboutVersion" class="about-version">
                         -
                     </div>
+                    <div id="aboutUpdateStatus" class="about-update-status"></div>
+                    <button id="checkUpdateBtn" class="btn-sm about-update-btn" onclick="doCheckForUpdates()">
+                        Check for updates
+                    </button>
                 </div>
 
                 <div class="about-description">
@@ -281,8 +286,6 @@
                     <div class="about-text">
                         Paste a video or playlist URL, pick your preferred quality, and download. Videos are saved as
                         MP4, audio as MP3.
-                        You can queue multiple downloads and they'll process one at a time - if one fails, the rest keep
-                        going.
                     </div>
                 </div>
 

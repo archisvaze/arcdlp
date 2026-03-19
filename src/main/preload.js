@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('api', {
     openExternal: (url) => ipcRenderer.invoke('settings:openExternal', url),
 
     getAppInfo: () => ipcRenderer.invoke('app:info'),
+    checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
 
     // History
     getHistory: () => ipcRenderer.invoke('history:get'),
@@ -59,5 +60,10 @@ contextBridge.exposeInMainWorld('api', {
         const handler = (_e, data) => cb(data);
         ipcRenderer.on('playlist:item', handler);
         return () => ipcRenderer.removeListener('playlist:item', handler);
+    },
+    onUpdateAvailable: (cb) => {
+        const handler = (_e, data) => cb(data);
+        ipcRenderer.on('update-available', handler);
+        return () => ipcRenderer.removeListener('update-available', handler);
     },
 });
