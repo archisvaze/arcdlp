@@ -1,6 +1,6 @@
 # ArcDLP
 
-A desktop video downloader powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality, download. Supports YouTube, Vimeo, Twitter/X, SoundCloud, and [thousands of other sites](https://github.com/yt-dlp/yt-dlp/supportedsites.md).
+A desktop video downloader powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality, download. Supports YouTube, Vimeo, Twitter/X, SoundCloud, and [thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 Everything runs locally on your machine - no cloud, no accounts, no tracking.
 
