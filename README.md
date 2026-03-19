@@ -70,10 +70,7 @@ Settings > Apps.
 
 1. Download the `.AppImage` file
 2. Make it executable: right-click → Properties → Permissions → check **Allow
-   executing file as program**, or run:
-   ```bash
-   chmod +x ArcDLP-*.AppImage
-   ```
+   executing file as program**
 3. Double-click to run
 
 ## Features
