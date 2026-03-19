@@ -223,12 +223,19 @@ function cleanInfo(raw) {
 }
 
 function buildPresets(formats) {
-    const heights = new Set();
+    // Collect every unique height yt-dlp reports
+    // Any format with a height is video, regardless of codec reporting.
+    // Some sites report vcodec/acodec as 'none' for muxed streams.
+    const heightSet = new Set();
     for (const f of formats) {
-        // Any format with a height is video, regardless of codec reporting.
-        // Some sites report vcodec/acodec as 'none' for muxed streams.
-        if (f.height) heights.add(f.height);
+        if (f.height) heightSet.add(f.height);
     }
+
+    // Sort descending so highest quality appears first
+    const heights = [...heightSet].sort((a, b) => b - a);
+
+    // Friendly tags for well-known resolutions
+    const tags = { 2160: '4K', 1440: '2K', 1080: 'Full HD', 720: 'HD' };
 
     function estimateSize(h) {
         const matching = formats.filter((f) => f.height === h && f.filesize);
@@ -245,29 +252,32 @@ function buildPresets(formats) {
 
     const presets = [];
 
-    const resMap = [
-        [2160, '4K'],
-        [1440, '2K'],
-        [1080, 'Full HD'],
-        [720, 'HD'],
-        [480, ''],
-        [360, ''],
-        [240, ''],
-    ];
+    // "Best" option — yt-dlp pick the optimal format.
+    // Only shown when video formats exist
+    if (heights.length > 0) {
+        presets.push({
+            id: 'best',
+            label: 'Best',
+            tag: '',
+            size: null,
+            formatId: 'bestvideo+bestaudio/best',
+            type: 'video',
+        });
+    }
 
-    for (const [h, tag] of resMap) {
-        if (!heights.has(h)) continue;
-        const size = estimateSize(h);
+    // One preset per unique height yt-dlp found
+    for (const h of heights) {
         presets.push({
             id: `${h}p`,
             label: `${h}p`,
-            tag: tag,
-            size: formatBytes(size),
+            tag: tags[h] || '',
+            size: formatBytes(estimateSize(h)),
             formatId: `bestvideo[height<=${h}]+bestaudio/best[height<=${h}]`,
             type: 'video',
         });
     }
 
+    // Audio extraction — always available
     const audioBest = formats
         .filter((f) => f.vcodec === 'none' && f.acodec !== 'none' && f.filesize)
         .sort((a, b) => (b.tbr || 0) - (a.tbr || 0))[0];
