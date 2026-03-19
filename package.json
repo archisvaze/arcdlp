@@ -1,0 +1,96 @@
+{
+    "name": "arcdlp",
+    "version": "1.2.0",
+    "description": "Video downloader powered by yt-dlp",
+    "main": "src/main/main.js",
+    "author": "Archis",
+    "license": "MIT",
+    "private": true,
+    "scripts": {
+        "postinstall": "node scripts/postinstall.js",
+        "dev": "DEV_MODE=1 electron .",
+        "dev:win": "set DEV_MODE=1 && electron .",
+        "start": "electron .",
+        "build:mac": "electron-builder --mac",
+        "build:win": "electron-builder --win --x64",
+        "build:linux": "electron-builder --linux --x64",
+        "build:all": "electron-builder --mac --win --linux"
+    },
+    "build": {
+        "publish": null,
+        "appId": "com.arcdlp.app",
+        "productName": "ArcDLP",
+        "copyright": "Copyright © 2026 Archis",
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "src/**/*",
+            "node_modules/**/*",
+            "package.json"
+        ],
+        "extraResources": [
+            {
+                "from": "bin/",
+                "to": "bin/",
+                "filter": [
+                    "yt-dlp",
+                    "yt-dlp.exe"
+                ]
+            },
+            {
+                "from": "node_modules/ffmpeg-static/",
+                "to": "ffmpeg-static/",
+                "filter": [
+                    "ffmpeg",
+                    "ffmpeg.exe"
+                ]
+            }
+        ],
+        "afterPack": "./scripts/fix-ffmpeg-win.js",
+        "mac": {
+            "category": "public.app-category.utilities",
+            "icon": "build/icon.icns",
+            "target": [
+                "dmg",
+                "zip"
+            ],
+            "hardenedRuntime": true,
+            "gatekeeperAssess": false
+        },
+        "win": {
+            "icon": "build/icon.ico",
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ]
+        },
+        "linux": {
+            "icon": "build/icon.png",
+            "target": "AppImage",
+            "category": "Utility"
+        },
+        "nsis": {
+            "oneClick": true,
+            "perMachine": false,
+            "allowToChangeInstallationDirectory": false,
+            "deleteAppDataOnUninstall": true
+        },
+        "asar": true,
+        "asarUnpack": [
+            "node_modules/ffmpeg-static/**"
+        ]
+    },
+    "dependencies": {
+        "electron-store": "^6.0.1",
+        "ffmpeg-static": "^5.2.0"
+    },
+    "devDependencies": {
+        "electron": "^33.0.0",
+        "electron-builder": "^25.0.0"
+    }
+}
