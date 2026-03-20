@@ -1565,20 +1565,19 @@ body {
 .toast {
     padding: 12px 16px;
     background: var(--card);
-    border: 1px solid var(--card-border);
+    border: 1px solid var(--accent);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     font-size: 13px;
     font-weight: 500;
-    color: var(--text);
+    color: var(--accent);
     pointer-events: auto;
     animation: toastIn 0.2s ease;
     max-width: 320px;
 }
 
 .toast.success {
-    border-color: rgba(52, 199, 89, 0.3);
-    background: var(--success-soft);
+    border-color: var(--success);
     color: var(--success);
 }
 
