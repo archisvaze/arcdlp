@@ -14,6 +14,7 @@ let queueData = {
     isActive: false,
 };
 let hasAutoSwitchedToQueue = false;
+let wasQueueActive = false;
 
 let isSignedIn = false;
 let updateInfo = null;
@@ -36,6 +37,7 @@ const $vidFmts = $('videoFormats');
 const $audFmts = $('audioFormats');
 const $dlBtn = $('dlBtn');
 const $logBody = $('logBody');
+const $toastContainer = $('toastContainer');
 
 // History
 const $historyList = $('historyList');
@@ -99,6 +101,18 @@ function clearLog() {
     addLog('Log cleared');
 }
 
+function showToast(msg, type = '') {
+    const toast = document.createElement('div');
+    toast.className = 'toast' + (type ? ' ' + type : '');
+    toast.textContent = msg;
+    $toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 150);
+    }, 3000);
+}
+
 function escapeHtml(str) {
     if (typeof str !== 'string') return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -117,9 +131,25 @@ window.api.onLog((msg) => {
 
 // Queue event listeners
 window.api.onQueueUpdate((data) => {
+    const wasActive = wasQueueActive;
+    const isNowActive = data.isActive;
+    const hasCompleted = data.counts.completed > 0;
+
     queueData = data;
+    wasQueueActive = isNowActive;
+
     renderQueue();
     updateQueueCount();
+
+    // Show toast when queue finishes (was active, now idle, has completed items)
+    if (wasActive && !isNowActive && hasCompleted) {
+        const { completed, failed } = data.counts;
+        if (failed > 0) {
+            showToast(`Downloads complete: ${completed} done, ${failed} failed`);
+        } else {
+            showToast(`${completed} download${completed !== 1 ? 's' : ''} complete ✓`, 'success');
+        }
+    }
 });
 
 window.api.onQueueItemUpdate((item) => {
@@ -130,12 +160,6 @@ window.api.onQueueItemUpdate((item) => {
 
 // Playlist streaming
 window.api.onPlaylistItem(({ item, count }) => {
-    // Update notification
-    window.api.onUpdateAvailable((data) => {
-        updateInfo = data;
-        addLog(`Update available: v${data.latest}`, 'highlight');
-        showUpdateBanner();
-    });
     if (!playlistItems.find((i) => i.id === item.id)) {
         playlistItems.push(item);
         playlistSelected.add(item.id);
@@ -143,6 +167,13 @@ window.api.onPlaylistItem(({ item, count }) => {
         $plItemCount.textContent = `${count} item${count !== 1 ? 's' : ''}`;
         updatePlDownloadBtn();
     }
+});
+
+// Update notification
+window.api.onUpdateAvailable((data) => {
+    updateInfo = data;
+    addLog(`Update available: v${data.latest}`, 'highlight');
+    showUpdateBanner();
 });
 
 $url.addEventListener('keydown', (e) => {
@@ -398,6 +429,7 @@ async function doDownload() {
         ]);
 
         addLog(`Added to queue: ${videoInfo.title}`, 'highlight');
+        showToast('Added to queue');
 
         // Auto-switch to queue tab on first add
         if (!hasAutoSwitchedToQueue) {
@@ -509,6 +541,7 @@ async function doPlaylistDownload() {
 
         await window.api.queueAdd(queueItems);
         addLog(`Added ${queueItems.length} items to queue`, 'success');
+        showToast(`Added ${queueItems.length} item${queueItems.length !== 1 ? 's' : ''} to queue`);
 
         if (!hasAutoSwitchedToQueue) {
             hasAutoSwitchedToQueue = true;
