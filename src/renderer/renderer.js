@@ -479,6 +479,7 @@ function appendPlaylistItem(item) {
     const duration = item.duration_string || '';
     const title = escapeHtml(item.title || 'Untitled');
     const idx = item._playlist_index || playlistItems.length;
+    const thumb = item.thumbnail ? escapeHtml(item.thumbnail) : '';
 
     el.innerHTML = `
         <label class="pl-item-check">
@@ -486,6 +487,9 @@ function appendPlaylistItem(item) {
             <span class="pl-check-box"></span>
         </label>
         <span class="pl-item-idx">${idx}</span>
+        <div class="pl-item-thumb">
+            ${thumb ? `<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><span class="pl-item-thumb-fallback">🎬</span>` : `<span class="pl-item-thumb-fallback" style="display:flex;">🎬</span>`}
+        </div>
         <div class="pl-item-info">
             <div class="pl-item-title">${title}</div>
             <div class="pl-item-meta">${duration}</div>
