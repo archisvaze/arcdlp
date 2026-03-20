@@ -172,6 +172,11 @@ ipcMain.handle('deps:check', () => {
     return ytdlp.checkDeps();
 });
 
+ipcMain.handle('ytdlp:version', async () => {
+    const [current, latest] = await Promise.all([ytdlp.getVersion(), ytdlp.getLatestVersion()]);
+    return { current, latest };
+});
+
 ipcMain.handle('video:fetch', async (_e, url) => {
     log('Fetch requested:', url);
     send('log', 'Fetching video info...');

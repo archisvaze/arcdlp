@@ -18,6 +18,7 @@ let wasQueueActive = false;
 
 let isSignedIn = false;
 let updateInfo = null;
+let ytdlpVersionCache = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -1002,6 +1003,23 @@ async function loadSettings() {
         const ffDot = document.querySelector('#depFfmpegStatus .dep-dot');
         ffEl.textContent = deps.ffmpeg.found ? deps.ffmpeg.path : 'Not found - run npm install';
         ffDot.className = 'dep-dot ' + (deps.ffmpeg.found ? 'ok' : 'missing');
+    } catch {}
+
+    try {
+        if (!ytdlpVersionCache) {
+            ytdlpVersionCache = await window.api.getYtdlpVersion();
+        }
+        const { current, latest } = ytdlpVersionCache;
+        const versionEl = $('depYtdlpVersion');
+        if (!current) {
+            versionEl.textContent = 'Unknown';
+        } else if (!latest) {
+            versionEl.textContent = current;
+        } else if (current === latest) {
+            versionEl.innerHTML = `${escapeHtml(current)} <span class="version-ok">✓ latest</span>`;
+        } else {
+            versionEl.innerHTML = `${escapeHtml(current)} <span class="version-outdated">→ ${escapeHtml(latest)} available</span>`;
+        }
     } catch {}
 
     try {

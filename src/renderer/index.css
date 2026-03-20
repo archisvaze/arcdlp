@@ -908,6 +908,25 @@ body {
     margin-top: -2px;
 }
 
+.settings-hint a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.settings-hint a:hover {
+    text-decoration: underline;
+}
+
+.version-ok {
+    color: var(--success);
+    font-weight: 500;
+}
+
+.version-outdated {
+    color: var(--warning);
+    font-weight: 500;
+}
+
 .auth-signed-in {
     color: var(--success);
 }

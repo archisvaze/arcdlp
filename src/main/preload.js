@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
     fetchVideo: (url) => ipcRenderer.invoke('video:fetch', url),
 
     checkDeps: () => ipcRenderer.invoke('deps:check'),
+    getYtdlpVersion: () => ipcRenderer.invoke('ytdlp:version'),
 
     getDownloadPath: () => ipcRenderer.invoke('settings:getDownloadPath'),
     chooseDownloadPath: () => ipcRenderer.invoke('settings:chooseDownloadPath'),

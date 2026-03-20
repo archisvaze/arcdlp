@@ -100,6 +100,55 @@ function checkDeps() {
     return result;
 }
 
+function getVersion() {
+    const ytdlp = getYtdlpPath();
+    if (!ytdlp) return Promise.resolve(null);
+
+    const { execFile } = require("child_process");
+
+    return new Promise((resolve) => {
+        execFile(ytdlp, ["--version"], { timeout: 10000 }, (err, stdout) => {
+            resolve(err ? null : stdout.trim());
+        });
+    });
+}
+
+function getLatestVersion() {
+    const https = require("https");
+
+    return new Promise((resolve) => {
+        const req = https.get(
+            "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest",
+            { headers: { "User-Agent": "ArcDLP" }, timeout: 10000 },
+            (res) => {
+                if (res.statusCode !== 200) {
+                    resolve(null);
+                    return;
+                }
+
+                let body = "";
+                res.on("data", (chunk) => {
+                    body += chunk;
+                });
+                res.on("end", () => {
+                    try {
+                        const data = JSON.parse(body);
+                        resolve(data.tag_name || null);
+                    } catch {
+                        resolve(null);
+                    }
+                });
+            },
+        );
+
+        req.on("error", () => resolve(null));
+        req.on("timeout", () => {
+            req.destroy();
+            resolve(null);
+        });
+    });
+}
+
 async function fetchInfo(url, { onLog } = {}) {
     const ytdlp = getYtdlpPath();
     if (!ytdlp) {
@@ -591,4 +640,6 @@ module.exports = {
     looksLikePlaylist,
     buildPresets,
     download,
+    getVersion,
+    getLatestVersion,
 };
