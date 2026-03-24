@@ -1,10 +1,16 @@
-## ArcDLP v1.2.3
+## ArcDLP v1.3.1
 
 ### What's New
 
+- **Instagram saved collections.** Paste a saved collection URL, sign in via Settings, and the app finds all posts in the collection. Select what you want, pick a format, and queue them for download.
+
+- **Instagram sign-in.** New "Instagram Account" section in Settings. Sign in to access your private saved collections. Credentials go directly to Instagram.
+
+- **Smart cookie routing.** Instagram URLs now automatically use your Instagram session for downloads, including individual posts and reels.
+
 - **Toast notifications.** Quick feedback when adding items to queue and when downloads complete. Appears top center, auto-dismisses.
 
-- **Playlist thumbnails.** Playlist items now show video thumbnails with lazy loading for smooth performance on large playlists.
+- **Playlist thumbnails.** Playlist items now show video thumbnails.
 
 ### Platform Support
 
@@ -16,9 +22,9 @@
 
 Scroll down to **Assets** and grab the file for your system:
 
-- **macOS**: `ArcDLP-1.2.3.dmg`
-- **Windows**: `ArcDLP-Setup-1.2.3.exe`
-- **Linux**: `ArcDLP-1.2.3.AppImage`
+- **macOS**: `ArcDLP-1.3.1.dmg`
+- **Windows**: `ArcDLP-Setup-1.3.1.exe`
+- **Linux**: `ArcDLP-1.3.1.AppImage`
 
 ### Installing on macOS
 

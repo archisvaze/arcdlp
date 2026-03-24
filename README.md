@@ -300,8 +300,8 @@ help.
 
 #### Quality of Life
 
-- **Thumbnails in playlist items** - The data is already fetched, just not
-  rendered yet
+- ~~**Thumbnails in playlist items** - The data is already fetched, just not
+  rendered yet~~ _(completed in v1.2.3)_
 - **File size estimates** - Show approximate size on quality presets when
   available
 - **Download complete notification** - System notification when the queue
