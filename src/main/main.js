@@ -8,6 +8,7 @@ const ytdlp = require('./ytdlp');
 const cookies = require('./cookies');
 const { queue } = require('./queue');
 const updater = require('./updater');
+const scraper = require('./scraper');
 const { DEV_MODE, log, logError } = require('./utils');
 
 const APP_NAME = 'ArcDLP';
@@ -260,6 +261,52 @@ ipcMain.handle('auth:logout', async () => {
     send('log', 'Signed out of YouTube');
     log('YouTube logout');
     return true;
+});
+
+// Instagram Auth
+
+ipcMain.handle('insta:check', () => cookies.hasInstaCookies());
+
+ipcMain.handle('insta:login', async () => {
+    log('Opening Instagram login window');
+    send('log', 'Opening Instagram sign-in...');
+    const success = await cookies.openInstaLoginWindow(mainWindow);
+    if (success) {
+        send('log', 'Signed in to Instagram ✓');
+        log('Instagram login successful');
+    } else {
+        send('log', 'Instagram sign-in cancelled');
+        log('Instagram login cancelled');
+    }
+    return success;
+});
+
+ipcMain.handle('insta:logout', async () => {
+    await cookies.clearInstaCookies();
+    send('log', 'Signed out of Instagram');
+    log('Instagram logout');
+    return true;
+});
+
+// Instagram Collection Scraper
+
+ipcMain.handle('scraper:collection', async (_e, url) => {
+    log('Scraper: collection requested:', url);
+    send('log', 'Scraping Instagram collection...');
+
+    try {
+        const result = await scraper.scrapeCollection(url, mainWindow, {
+            onLog: (msg) => send('log', msg),
+            onItem: (item, count) => send('scraper:item', { item, count }),
+        });
+
+        send('log', `Found ${result.items.length} posts in collection`);
+        log('Scraper: found', result.items.length, 'items');
+        return result;
+    } catch (err) {
+        send('log', `Scraper error: ${err.message}`);
+        throw err;
+    }
 });
 
 // Playlist

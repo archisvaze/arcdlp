@@ -7,13 +7,22 @@ const fs = require('fs');
 const { log, logError } = require('./utils');
 const cookies = require('./cookies');
 
-// Append --cookies flag if user is signed in
-async function appendCookieArgs(args) {
+// Append --cookies flag if user is signed in.
+// Use Instagram cookies for Instagram URLs, YouTube cookies otherwise.
+async function appendCookieArgs(args, url) {
     try {
-        const cookieFile = await cookies.getCookieFile();
-        if (cookieFile) {
-            args.push('--cookies', cookieFile);
-            log('Using cookie file:', cookieFile);
+        if (url && url.includes('instagram.com')) {
+            const cookieFile = await cookies.getInstaCookieFile();
+            if (cookieFile) {
+                args.push('--cookies', cookieFile);
+                log('Using Instagram cookie file:', cookieFile);
+            }
+        } else {
+            const cookieFile = await cookies.getCookieFile();
+            if (cookieFile) {
+                args.push('--cookies', cookieFile);
+                log('Using cookie file:', cookieFile);
+            }
         }
     } catch (err) {
         logError('Cookie file error:', err.message);
@@ -113,7 +122,7 @@ async function fetchInfo(url, { onLog } = {}) {
     if (ffmpeg && ffmpeg !== 'ffmpeg') {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
     }
-    await appendCookieArgs(args);
+    await appendCookieArgs(args, url);
     args.push(url);
 
     return new Promise((resolve, reject) => {
@@ -328,7 +337,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat },
         args.push('--postprocessor-args', 'ffmpeg:-c:v copy -c:a aac');
     }
 
-    await appendCookieArgs(args);
+    await appendCookieArgs(args, url);
     args.push(url);
     log('Download args:', args.join(' '));
 
@@ -413,7 +422,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
     if (ffmpeg && ffmpeg !== 'ffmpeg') {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
     }
-    await appendCookieArgs(args);
+    await appendCookieArgs(args, url);
     args.push(url);
 
     return new Promise((resolve, reject) => {
@@ -553,6 +562,8 @@ function looksLikePlaylist(url) {
     if (u.includes('/sets/')) return true;
     // Generic patterns
     if (u.includes('/album/') || u.includes('/albums/')) return true;
+    // Instagram saved collections
+    if (u.includes('instagram.com') && u.includes('/saved/')) return true;
     return false;
 }
 

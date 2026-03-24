@@ -26,6 +26,14 @@ contextBridge.exposeInMainWorld('api', {
     login: () => ipcRenderer.invoke('auth:login'),
     logout: () => ipcRenderer.invoke('auth:logout'),
 
+    // Instagram Auth
+    checkInstaAuth: () => ipcRenderer.invoke('insta:check'),
+    instaLogin: () => ipcRenderer.invoke('insta:login'),
+    instaLogout: () => ipcRenderer.invoke('insta:logout'),
+
+    // Instagram Collection Scraper
+    scrapeCollection: (url) => ipcRenderer.invoke('scraper:collection', url),
+
     // Playlist
     fetchPlaylist: (url) => ipcRenderer.invoke('playlist:fetch', url),
     detectPlaylist: (url) => ipcRenderer.invoke('playlist:detect', url),
@@ -60,6 +68,11 @@ contextBridge.exposeInMainWorld('api', {
         const handler = (_e, data) => cb(data);
         ipcRenderer.on('playlist:item', handler);
         return () => ipcRenderer.removeListener('playlist:item', handler);
+    },
+    onScraperItem: (cb) => {
+        const handler = (_e, data) => cb(data);
+        ipcRenderer.on('scraper:item', handler);
+        return () => ipcRenderer.removeListener('scraper:item', handler);
     },
     onUpdateAvailable: (cb) => {
         const handler = (_e, data) => cb(data);

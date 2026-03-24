@@ -130,7 +130,7 @@
                 <div id="emptyState" class="empty-state">
                     <div class="icon">⬇</div>
                     <div class="title">Paste a video or playlist URL to get started</div>
-                    <div class="sub">YouTube, Vimeo, Twitter, and thousands more</div>
+                    <div class="sub">YouTube, Vimeo, Twitter, Instagram collections, and thousands more</div>
                 </div>
             </div>
 
@@ -232,6 +232,27 @@
                 </div>
 
                 <div class="settings-section">
+                    <div class="settings-section-title">Instagram Account</div>
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <div class="settings-row-label">Instagram sign-in</div>
+                            <div id="instaAuthStatus" class="settings-row-value">
+                                <span class="auth-signed-out">Not signed in</span>
+                            </div>
+                        </div>
+                        <div class="settings-row-action">
+                            <button id="instaAuthActionBtn" class="btn-sm" onclick="doInstaLogin()">
+                                Sign in
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-hint">
+                        Sign in to download from your saved collections. Your credentials go directly to Instagram -
+                        this app never sees your password.
+                    </div>
+                </div>
+
+                <div class="settings-section">
                     <div class="settings-section-title">Dependencies</div>
                     <div class="settings-row">
                         <div class="settings-row-info">
@@ -277,7 +298,7 @@
                 </div>
 
                 <div class="about-description">
-                    A simple desktop app for downloading videos and audio from YouTube, Vimeo, Twitter, and thousands of
+                    A simple desktop app for downloading videos and audio from YouTube, Vimeo, Twitter, Instagram, and thousands of
                     other sites.
                     Powered by yt-dlp.
                 </div>

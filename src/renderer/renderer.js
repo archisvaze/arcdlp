@@ -17,6 +17,7 @@ let hasAutoSwitchedToQueue = false;
 let wasQueueActive = false;
 
 let isSignedIn = false;
+let isInstaSignedIn = false;
 let updateInfo = null;
 
 const $ = (id) => document.getElementById(id);
@@ -169,6 +170,16 @@ window.api.onPlaylistItem(({ item, count }) => {
     }
 });
 
+window.api.onScraperItem(({ item, count }) => {
+    if (!playlistItems.find((i) => i.id === item.id)) {
+        playlistItems.push(item);
+        playlistSelected.add(item.id);
+        appendPlaylistItem(item);
+        $plItemCount.textContent = `${count} post${count !== 1 ? 's' : ''}`;
+        updatePlDownloadBtn();
+    }
+});
+
 // Update notification
 window.api.onUpdateAvailable((data) => {
     updateInfo = data;
@@ -199,14 +210,21 @@ async function doFetch() {
     $fetchBtn.innerHTML = '<span class="spinner"></span> Fetching';
 
     try {
-        const isPlaylist = await window.api.detectPlaylist(url);
+        const isInstaCollection = isInstagramCollection(url);
 
-        if (isPlaylist) {
-            addLog('Detected playlist URL, fetching items...', 'highlight');
-            await fetchPlaylist(url);
+        if (isInstaCollection) {
+            addLog('Detected Instagram saved collection', 'highlight');
+            await fetchInstaCollection(url);
         } else {
-            addLog('Fetching video info...', 'highlight');
-            await fetchSingleVideo(url);
+            const isPlaylist = await window.api.detectPlaylist(url);
+
+            if (isPlaylist) {
+                addLog('Detected playlist URL, fetching items...', 'highlight');
+                await fetchPlaylist(url);
+            } else {
+                addLog('Fetching video info...', 'highlight');
+                await fetchSingleVideo(url);
+            }
         }
     } catch (err) {
         const msg = err.message || 'Failed to fetch';
@@ -219,6 +237,8 @@ async function doFetch() {
 
         if (isAuthError(msg)) {
             showAuthError();
+        } else if (msg.includes('Instagram login required') || msg.includes('Sign in via Settings')) {
+            showInstaAuthError();
         } else if (msg.includes('not found') || msg.includes('Cannot run')) {
             showError('yt-dlp binary not found. Run `npm install` to download it.');
         } else if (msg.includes('Unsupported URL') || msg.includes('No video formats')) {
@@ -292,6 +312,53 @@ async function fetchPlaylist(url) {
     showPlaylistFooter();
     showClearBtn();
     addLog(`Playlist loaded: ${playlistItems.length} items`, 'success');
+}
+
+async function fetchInstaCollection(url) {
+    // Check Instagram auth first
+    const instaAuth = await window.api.checkInstaAuth();
+    if (!instaAuth) {
+        throw new Error('Instagram login required. Sign in via Settings first.');
+    }
+
+    isPlaylistMode = true;
+    playlistItems = [];
+    playlistSelected = new Set();
+    $plItems.innerHTML = '';
+
+    showPlaylist();
+
+    // Update badge to say COLLECTION instead of PLAYLIST
+    const badge = document.querySelector('.playlist-badge');
+    if (badge) badge.textContent = 'COLLECTION';
+
+    addLog('Scraping collection page (this may take a moment)...', 'highlight');
+
+    const result = await window.api.scrapeCollection(url);
+
+    for (const item of result.items) {
+        if (!playlistItems.find((i) => i.id === item.id)) {
+            playlistItems.push(item);
+            playlistSelected.add(item.id);
+            appendPlaylistItem(item);
+        }
+    }
+
+    $plItemCount.textContent = `${playlistItems.length} post${playlistItems.length !== 1 ? 's' : ''}`;
+    updatePlDownloadBtn();
+    showPlaylistFooter();
+    showClearBtn();
+    addLog(`Collection scraped: ${playlistItems.length} posts`, 'success');
+}
+
+function isInstagramCollection(url) {
+    if (!url) return false;
+    try {
+        const u = new URL(url);
+        return u.hostname.includes('instagram.com') && u.pathname.includes('/saved/');
+    } catch {
+        return false;
+    }
 }
 
 // Video Card
@@ -468,6 +535,9 @@ function hidePlaylist() {
     playlistItems = [];
     playlistSelected = new Set();
     isPlaylistMode = false;
+    // Reset badge text
+    const badge = document.querySelector('.playlist-badge');
+    if (badge) badge.textContent = 'PLAYLIST';
 }
 
 function appendPlaylistItem(item) {
@@ -810,6 +880,57 @@ function updateAuthUI() {
     }
 }
 
+// Instagram auth
+
+function showInstaAuthError() {
+    const text = isInstaSignedIn
+        ? 'This collection requires Instagram sign-in. Your session may have expired. '
+        : 'Instagram sign-in required to access saved collections. ';
+    const btnLabel = isInstaSignedIn ? 'Sign in again' : 'Sign in to Instagram';
+    $error.innerHTML = escapeHtml(text) + `<button class="auth-error-btn" onclick="doInstaLogin()">${btnLabel}</button>`;
+    $error.classList.add('visible', 'auth-error');
+}
+
+async function doInstaLogin() {
+    hideError();
+    addLog('Opening Instagram sign-in...', 'highlight');
+    try {
+        const success = await window.api.instaLogin();
+        isInstaSignedIn = success;
+        updateInstaAuthUI();
+        if (success) {
+            addLog('Signed in to Instagram ✓', 'success');
+        }
+    } catch (e) {
+        addLog('Instagram sign-in failed: ' + e.message, 'error');
+    }
+}
+
+async function doInstaLogout() {
+    try {
+        await window.api.instaLogout();
+        isInstaSignedIn = false;
+        updateInstaAuthUI();
+        addLog('Signed out of Instagram');
+    } catch (e) {
+        addLog('Instagram sign-out failed: ' + e.message, 'error');
+    }
+}
+
+function updateInstaAuthUI() {
+    const el = $('instaAuthStatus');
+    if (!el) return;
+    if (isInstaSignedIn) {
+        el.innerHTML = '<span class="auth-signed-in">Signed in to Instagram</span>';
+        $('instaAuthActionBtn').textContent = 'Sign out';
+        $('instaAuthActionBtn').onclick = doInstaLogout;
+    } else {
+        el.innerHTML = '<span class="auth-signed-out">Not signed in</span>';
+        $('instaAuthActionBtn').textContent = 'Sign in';
+        $('instaAuthActionBtn').onclick = doInstaLogin;
+    }
+}
+
 async function doOpenFolder() {
     window.api.openFolder();
 }
@@ -1008,6 +1129,11 @@ async function loadSettings() {
         isSignedIn = await window.api.checkAuth();
         updateAuthUI();
     } catch {}
+
+    try {
+        isInstaSignedIn = await window.api.checkInstaAuth();
+        updateInstaAuthUI();
+    } catch {}
 }
 
 async function loadAbout() {
@@ -1122,6 +1248,12 @@ async function init() {
         isSignedIn = await window.api.checkAuth();
         if (isSignedIn) addLog('YouTube: signed in ✓', 'success');
         updateAuthUI();
+    } catch {}
+
+    try {
+        isInstaSignedIn = await window.api.checkInstaAuth();
+        if (isInstaSignedIn) addLog('Instagram: signed in ✓', 'success');
+        updateInstaAuthUI();
     } catch {}
 }
 
