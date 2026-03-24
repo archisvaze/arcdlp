@@ -25,7 +25,7 @@ Scroll down to **Assets** and grab the file for your system:
 ArcDLP is not code-signed yet, so macOS will show a warning the first time you open it.
 
 1. Download the `.dmg` and drag ArcDLP to Applications
-2. Open ArcDLP — you'll see a warning
+2. After opening ArcDLP you might see a warning
 3. Go to **System Settings → Privacy & Security**
 4. Click **Open Anyway** next to ArcDLP
 

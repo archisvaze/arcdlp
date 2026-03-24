@@ -8,7 +8,7 @@ Open-source desktop video downloader powered by
 [yt-dlp](https://github.com/yt-dlp/yt-dlp). Paste a URL, pick a quality,
 download.
 
-Supports YouTube, Vimeo, Twitter/X, SoundCloud, and
+Supports YouTube, Vimeo, Twitter/X, SoundCloud, Instagram, and
 [thousands of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 Everything runs locally on your machine - no cloud, no accounts, no tracking.
@@ -80,10 +80,14 @@ Settings > Apps.
   audio as MP3
 - **Playlist support** - Paste a playlist URL, select which items to download,
   pick a format, and queue them all at once
+- **Instagram saved collections** - Paste a saved collection URL, the app scrapes
+  all post links from the collection page, and queues them for download
 - **Download queue** - Sequential processing with per-item progress, retry,
   cancel, and skip. One failure never stops the rest
 - **YouTube sign-in** - Access age-restricted, private, and members-only content
   through a built-in browser login window. Credentials go directly to Google
+- **Instagram sign-in** - Access your private saved collections through a
+  built-in browser login window. Credentials go directly to Instagram
 - **Download history** - Quick access to previously fetched videos with cached
   metadata
 - **Multi-site compatibility** - Works with any site yt-dlp supports. Format
@@ -107,6 +111,27 @@ the whole batch before queueing.
 To access private or age-restricted YouTube videos, sign in via **Settings >
 YouTube Account**. Your credentials go directly to Google through their standard
 login page.
+
+### Instagram Saved Collections
+
+yt-dlp supports downloading individual Instagram posts and reels, but it has no
+extractor for saved collections. ArcDLP bridges this gap with a built-in scraper.
+
+1. Sign in to Instagram via **Settings > Instagram Account**
+2. Paste a saved collection URL (e.g.
+   `https://www.instagram.com/username/saved/collection-name/12345/`)
+3. Click **Fetch** - the app opens the collection page in a hidden browser
+   window using your Instagram session
+4. It scrolls through the page, collecting all `<a>` tags with `/p/` and
+   `/reel/` href patterns
+5. Found posts appear in a playlist-style picker where you can select/deselect
+   items
+6. Click **Add Selected to Queue** - each post is downloaded individually via
+   yt-dlp with your Instagram cookies
+
+The scraper stops after 5 consecutive scrolls with no new posts, or after a
+3-minute timeout (partial results are returned if any were found). Large
+collections may be rate-limited by Instagram.
 
 ## Support the Project
 
@@ -217,7 +242,8 @@ arcdlp/
 │   │   ├── preload.js        # Context bridge (window.api)
 │   │   ├── ytdlp.js          # yt-dlp integration: spawn, parse, download
 │   │   ├── queue.js          # Sequential download queue with per-item state
-│   │   ├── cookies.js        # YouTube cookie auth and Netscape format export
+│   │   ├── cookies.js        # YouTube + Instagram cookie auth
+│   │   ├── scraper.js        # Instagram collection scraper (BrowserWindow)
 │   │   ├── updater.js        # Update checker via GitHub Releases API
 │   │   └── utils.js          # Dev mode flag, logging helpers
 │   └── renderer/
@@ -246,6 +272,12 @@ arcdlp/
 
 For playlists, the app uses `--flat-playlist --dump-json` to stream items one at
 a time, then queues selected items for download.
+
+For Instagram saved collections, the app opens the collection page in a hidden
+`BrowserWindow`, scrolls through it collecting anchor tags (`<a href="/p/...">`)
+and (`<a href="/reel/...">`) via `executeJavaScript`, then presents the scraped
+URLs in the playlist picker UI. Each post is then downloaded individually by
+yt-dlp using the Instagram session cookies.
 
 ### Dependencies
 
@@ -302,9 +334,10 @@ great contributions:
 #### App-Level Features
 
 - **Keyboard shortcuts** - Quick access to common actions
-- **Multi-site authentication** - Expand the cookie login flow beyond YouTube
-- **Playlist detection for more sites** - Currently conservative (YouTube and
-  SoundCloud only)
+- **More site-specific auth** - Expand the cookie login flow to more sites
+  beyond YouTube and Instagram
+- **Playlist detection for more sites** - Currently conservative (YouTube,
+  SoundCloud, and Instagram saved collections)
 - **DOM virtualization for large playlists** - Currently renders all items,
   works fine under ~1000
 

@@ -47,15 +47,15 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
             reject(err);
         }
 
-        // 3-minute timeout — partial results if we found anything
+        // Increased timeout to 4 mins
         const timer = setTimeout(() => {
             if (items.length > 0) {
                 _log(`Scraping timed out after ${items.length} posts`);
                 done();
             } else {
-                fail(new Error('Scraping timed out — no posts found. Are you signed in to Instagram?'));
+                fail(new Error('Timeout. No posts found'));
             }
-        }, 180000);
+        }, 240000);
 
         win.webContents.on('did-finish-load', () => {
             _log('Page loaded, scanning for posts...');
@@ -150,7 +150,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
                         window.scrollTo(0, document.body.scrollHeight);
                     `);
 
-                    // Wait for new content to load
+                    // Wait for new content to load. TEST worst case
                     await delay(1500);
                 } catch (err) {
                     // Window was closed?
@@ -180,7 +180,6 @@ function delay(ms) {
 }
 
 // Check if a URL is like an Instagram saved collection.
-
 function isInstagramCollection(url) {
     if (!url) return false;
     try {
