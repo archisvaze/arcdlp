@@ -1,4 +1,4 @@
-## ArcDLP v1.3.1
+## ArcDLP v1.3.2
 
 ### What's New
 
@@ -12,6 +12,10 @@
 
 - **Playlist thumbnails.** Playlist items now show video thumbnails.
 
+### Bug Fixes
+
+- **Fixed: Linux AppImage "cannot execute binary file".** The yt-dlp binary bundled in the Linux build was for the wrong architecture when built from an ARM machine. The postinstall script now respects `npm_config_platform` and `npm_config_arch` environment variables, matching how ffmpeg-static handles cross-platform builds.
+
 ### Platform Support
 
 - **macOS** (.dmg)
@@ -22,9 +26,9 @@
 
 Scroll down to **Assets** and grab the file for your system:
 
-- **macOS**: `ArcDLP-1.3.1.dmg`
-- **Windows**: `ArcDLP-Setup-1.3.1.exe`
-- **Linux**: `ArcDLP-1.3.1.AppImage`
+- **macOS**: `ArcDLP-1.3.2.dmg`
+- **Windows**: `ArcDLP-Setup-1.3.2.exe`
+- **Linux**: `ArcDLP-1.3.2.AppImage`
 
 ### Installing on macOS
 

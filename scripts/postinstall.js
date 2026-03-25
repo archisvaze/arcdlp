@@ -14,8 +14,8 @@ const BIN_DIR = path.join(__dirname, '..', 'bin');
 const LATEST_URL = 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest';
 
 function getBinaryName() {
-    const platform = process.platform;
-    const arch = process.arch;
+    const platform = process.env.npm_config_platform || process.platform;
+    const arch = process.env.npm_config_arch || process.arch;
 
     if (platform === 'win32') return 'yt-dlp.exe';
     if (platform === 'darwin') return 'yt-dlp_macos';

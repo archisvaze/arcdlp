@@ -185,15 +185,12 @@ npm install
 
 #### Cross-platform builds
 
-To build for a different platform's ffmpeg binary:
+Both `ffmpeg-static` and the yt-dlp postinstall script download platform-specific
+binaries during `npm install`. On macOS, this works automatically, no setup needed.
 
-### ffmpeg-static Platform Setup
-
-`ffmpeg-static` downloads a platform-specific binary during `npm install`. On
-macOS, this works automatically, no setup needed.
-
-On Windows and Linux, set environment variables **before** `npm install` to
-ensure the correct binary is downloaded:
+If you're building for a different architecture (e.g. building the Linux x64
+AppImage from an ARM machine), set these environment variables **before**
+`npm install` to ensure the correct binaries are downloaded:
 
 **Windows (x64):**
 
@@ -206,10 +203,12 @@ ensure the correct binary is downloaded:
 
     export npm_config_platform=linux
     export npm_config_arch=x64
+    rm -rf node_modules bin
+    npm install
 
-`ffmpeg-static` only downloads one binary per install, matched to the configured
-arch. This means you can't build both x64 and arm64 Linux AppImages from a
-single `npm install`
+Only one binary per platform is downloaded per install. If you need to switch
+target architectures, delete `node_modules` and `bin` and run `npm install`
+again with the new env vars.
 
 ### Development
 
