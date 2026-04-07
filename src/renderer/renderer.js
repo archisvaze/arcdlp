@@ -1220,6 +1220,13 @@ async function init() {
     } catch {}
 
     try {
+        const info = await window.api.getAppInfo();
+    document.getElementById('app-version').textContent = `v${info.version}`;
+    } 
+    catch {
+            document.getElementById('app-version').textContent = 'Version info not available';
+    }
+    try {
         const deps = await window.api.checkDeps();
         addLog(`yt-dlp: ${deps.ytdlp.found ? '✓' : '✗ NOT FOUND'}`, deps.ytdlp.found ? 'success' : 'error');
         addLog(`ffmpeg: ${deps.ffmpeg.found ? '✓' : '✗ NOT FOUND'}`, deps.ffmpeg.found ? 'success' : 'error');
