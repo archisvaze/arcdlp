@@ -117,13 +117,36 @@ async function fetchInfo(url, { onLog } = {}) {
     _log('Launching yt-dlp...');
     log('Fetching info:', url);
 
-    const args = ['--dump-json', '--no-playlist', '--no-warnings', '--socket-timeout', '30'];
+    const args = ['--dump-json', '--no-playlist', '--no-warnings', '--ignore-config', '--socket-timeout', '30'];
     const ffmpeg = getFfmpegPath();
     if (ffmpeg && ffmpeg !== 'ffmpeg') {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
     }
     await appendCookieArgs(args, url);
     args.push(url);
+
+    // // Check yt-dlp version
+    // try {
+    //     const { execFileSync } = require('child_process');
+    //     const ver = execFileSync(ytdlp, ['--version'], { timeout: 5000 }).toString().trim();
+    //     _log(`[diag] yt-dlp version: ${ver}`);
+    // } catch (e) {
+    //     _log(`[diag] yt-dlp --version failed: ${e.message}`);
+    // }
+
+    // Check ffmpeg
+    // if (ffmpeg && ffmpeg !== 'ffmpeg') {
+    //     const ffmpegExists = fs.existsSync(ffmpeg);
+    //     let ffmpegExecutable = false;
+    //     try {
+    //         fs.accessSync(ffmpeg, fs.constants.X_OK);
+    //         ffmpegExecutable = true;
+    //     } catch {}
+    //     _log(`[diag] ffmpeg exists: ${ffmpegExists}, executable: ${ffmpegExecutable}`);
+    //     _log(`[diag] --ffmpeg-location: ${path.dirname(ffmpeg)}`);
+    // } else {
+    //     _log(`[diag] ffmpeg: NOT FOUND (fell through to system)`);
+    // }
 
     return new Promise((resolve, reject) => {
         const proc = spawn(ytdlp, args);
@@ -150,11 +173,10 @@ async function fetchInfo(url, { onLog } = {}) {
         proc.stderr.on('data', (d) => {
             const text = d.toString();
             stderr += text;
-            // Forward yt-dlp status lines
             const lines = text.split('\n');
             for (const line of lines) {
                 const t = line.trim();
-                if (t && !t.startsWith('WARNING') && t.length < 200) {
+                if (t && t.length < 200) {
                     _log(t);
                 }
             }
@@ -167,6 +189,8 @@ async function fetchInfo(url, { onLog } = {}) {
             if (code !== 0) {
                 const msg = stderr.trim() || `yt-dlp exited with code ${code}`;
                 logError('Fetch failed:', msg);
+                _log(`[diag] exit code: ${code}`);
+                _log(`[diag] stderr: ${stderr.trim().slice(0, 500)}`);
                 return reject(new Error(msg));
             }
 
@@ -268,7 +292,7 @@ function buildPresets(formats) {
             label: 'Best',
             tag: '',
             size: null,
-            formatId: 'bestvideo+bestaudio/best',
+            formatId: 'bv*+ba/b',
             type: 'video',
         });
     }
@@ -280,7 +304,7 @@ function buildPresets(formats) {
             label: `${h}p`,
             tag: tags[h] || '',
             size: formatBytes(estimateSize(h)),
-            formatId: `bestvideo[height<=${h}]+bestaudio/best[height<=${h}]`,
+            formatId: `bv*[height<=${h}]+ba/b[height<=${h}]/b`,
             type: 'video',
         });
     }
@@ -293,9 +317,9 @@ function buildPresets(formats) {
     presets.push({
         id: 'audio',
         label: 'MP3',
-        tag: '256 Kb/s',
+        tag: '',
         size: formatBytes(audioBest?.filesize),
-        formatId: 'bestaudio/best',
+        formatId: 'ba/b',
         type: 'audio',
     });
 
@@ -314,6 +338,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat },
     const args = [
         '--newline',
         '--no-warnings',
+        '--ignore-config',
         '--socket-timeout',
         '30',
         '--progress-template',
@@ -417,7 +442,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
     _log('Fetching playlist info...');
     log('Fetching playlist:', url);
 
-    const args = ['--flat-playlist', '--dump-json', '--no-warnings', '--socket-timeout', '30'];
+    const args = ['--flat-playlist', '--dump-json', '--no-warnings', '--ignore-config', '--socket-timeout', '30'];
     const ffmpeg = getFfmpegPath();
     if (ffmpeg && ffmpeg !== 'ffmpeg') {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));

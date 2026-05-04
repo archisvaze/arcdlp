@@ -10,6 +10,7 @@ const { queue } = require('./queue');
 const updater = require('./updater');
 const scraper = require('./scraper');
 const { DEV_MODE, log, logError } = require('./utils');
+const fs = require('fs');
 
 const APP_NAME = 'ArcDLP';
 
@@ -377,4 +378,29 @@ ipcMain.handle('queue:clearCompleted', () => {
 ipcMain.handle('queue:remove', (_e, itemId) => {
     queue.remove(itemId);
     return { ok: true };
+});
+
+ipcMain.handle('app:reset', async () => {
+    try {
+        const userDataPath = app.getPath('userData');
+        log('Reset requested. userData:', userDataPath);
+
+        // Relaunch AFTER cleanup
+        setTimeout(() => {
+            try {
+                fs.rmSync(userDataPath, { recursive: true, force: true });
+                log('User data deleted');
+            } catch (err) {
+                logError('Failed deleting userData:', err.message);
+            }
+
+            app.relaunch();
+            app.exit(0);
+        }, 100);
+
+        return { ok: true };
+    } catch (err) {
+        logError('Reset failed:', err.message);
+        return { ok: false, error: err.message };
+    }
 });

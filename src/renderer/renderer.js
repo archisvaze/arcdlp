@@ -453,7 +453,12 @@ function formatDate(yyyymmdd) {
 function formatOptionHTML(p, icon) {
     const tag = p.tag ? `<span class="tag">${escapeHtml(p.tag)}</span>` : '';
     const size = p.size ? escapeHtml(p.size) : '';
-    const label = p.type === 'audio' ? `${escapeHtml(p.label)} · ${escapeHtml(p.tag || '')}` : `${escapeHtml(p.label)} ${tag}`;
+    const label =
+        p.type === 'audio'
+            ? p.tag
+                ? `${escapeHtml(p.label)} · ${escapeHtml(p.tag)}`
+                : escapeHtml(p.label)
+            : `${escapeHtml(p.label)} ${tag}`;
     return `
         <div class="format-option" data-id="${escapeHtml(p.id)}">
             <div class="format-radio"></div>
@@ -1136,6 +1141,20 @@ async function loadSettings() {
     } catch {}
 }
 
+async function doResetApp() {
+    const confirmReset = confirm('This will delete ALL app data (cookies, history, settings) and restart the app.\n\nContinue?');
+
+    if (!confirmReset) return;
+
+    try {
+        addLog('Resetting app...', 'highlight');
+        await window.api.resetApp();
+    } catch (err) {
+        addLog('Reset failed: ' + err.message, 'error');
+        showToast('Reset failed', 'error');
+    }
+}
+
 async function loadAbout() {
     try {
         const info = await window.api.getAppInfo();
@@ -1219,13 +1238,6 @@ async function init() {
         addLog(`v${info.version} · ${info.platform}/${info.arch} · dev:${info.devMode}`);
     } catch {}
 
-    try {
-        const info = await window.api.getAppInfo();
-    document.getElementById('app-version').textContent = `v${info.version}`;
-    } 
-    catch {
-            document.getElementById('app-version').textContent = 'Version info not available';
-    }
     try {
         const deps = await window.api.checkDeps();
         addLog(`yt-dlp: ${deps.ytdlp.found ? '✓' : '✗ NOT FOUND'}`, deps.ytdlp.found ? 'success' : 'error');

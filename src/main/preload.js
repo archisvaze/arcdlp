@@ -79,4 +79,6 @@ contextBridge.exposeInMainWorld('api', {
         ipcRenderer.on('update-available', handler);
         return () => ipcRenderer.removeListener('update-available', handler);
     },
+
+    resetApp: () => ipcRenderer.invoke('app:reset'),
 });

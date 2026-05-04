@@ -106,15 +106,15 @@
                                 Format for all
                             </div>
                             <select id="plFormatSelect" class="pl-format-select">
-                                <option value="bestvideo+bestaudio/best">Best quality</option>
-                                <option value="bestvideo[height<=2160]+bestaudio/best[height<=2160]">4K</option>
-                                <option value="bestvideo[height<=1440]+bestaudio/best[height<=1440]">2K</option>
-                                <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]" selected>
+                                <option value="bv*+ba/b">Best quality</option>
+                                <option value="bv*[height<=2160]+ba/b[height<=2160]/b">4K</option>
+                                <option value="bv*[height<=1440]+ba/b[height<=1440]/b">2K</option>
+                                <option value="bv*[height<=1080]+ba/b[height<=1080]/b" selected>
                                     1080p
                                 </option>
-                                <option value="bestvideo[height<=720]+bestaudio/best[height<=720]">720p</option>
-                                <option value="bestvideo[height<=480]+bestaudio/best[height<=480]">480p</option>
-                                <option value="bestaudio/best" data-audio="true">
+                                <option value="bv*[height<=720]+ba/b[height<=720]/b">720p</option>
+                                <option value="bv*[height<=480]+ba/b[height<=480]/b">480p</option>
+                                <option value="ba/b" data-audio="true">
                                     MP3 (audio only)
                                 </option>
                             </select>
@@ -207,6 +207,19 @@
                             </button>
                         </div>
                     </div>
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <div class="settings-row-label">Reset app (clear cache)</div>
+                            <div class="settings-row-value">
+                                Deletes all app data and restarts
+                            </div>
+                        </div>
+                        <div class="settings-row-action">
+                            <button class="btn-sm btn-sm-danger" onclick="doResetApp()">
+                                Reset
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="settings-section">
@@ -281,9 +294,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="settings-section-title" id="app-version">Version loading...</div>
             </div>
-            
 
             <!-- About Tab -->
             <div id="tab-about" class="tab-panel">
@@ -300,7 +311,8 @@
                 </div>
 
                 <div class="about-description">
-                    A simple desktop app for downloading videos and audio from YouTube, Vimeo, Twitter, Instagram, and thousands of
+                    A simple desktop app for downloading videos and audio from YouTube, Vimeo, Twitter, Instagram, and
+                    thousands of
                     other sites.
                     Powered by yt-dlp.
                 </div>
