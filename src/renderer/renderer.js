@@ -496,7 +496,7 @@ async function doDownload() {
                 thumbnail: videoInfo.thumbnail,
                 formatId: selectedPreset.formatId,
                 extractAudio: isAudio,
-                audioFormat: isAudio ? 'mp3' : undefined,
+                audioFormat: isAudio ? selectedPreset.audioFormat || 'mp3' : undefined,
             },
         ]);
 
@@ -615,7 +615,7 @@ async function doPlaylistDownload() {
             thumbnail: item.thumbnail,
             formatId: formatId,
             extractAudio: isAudio,
-            audioFormat: isAudio ? 'mp3' : undefined,
+            audioFormat: isAudio ? opt.dataset.format || 'mp3' : undefined,
         }));
 
         await window.api.queueAdd(queueItems);

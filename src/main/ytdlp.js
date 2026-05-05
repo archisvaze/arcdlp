@@ -315,12 +315,23 @@ function buildPresets(formats) {
         .sort((a, b) => (b.tbr || 0) - (a.tbr || 0))[0];
 
     presets.push({
-        id: 'audio',
+        id: 'audio-mp3',
         label: 'MP3',
         tag: '',
         size: formatBytes(audioBest?.filesize),
         formatId: 'ba/b',
         type: 'audio',
+        audioFormat: 'mp3',
+    });
+
+    presets.push({
+        id: 'audio-opus',
+        label: 'OPUS',
+        tag: '',
+        size: formatBytes(audioBest?.filesize),
+        formatId: 'ba/b',
+        type: 'audio',
+        audioFormat: 'opus',
     });
 
     return presets;
