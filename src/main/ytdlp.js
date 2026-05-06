@@ -90,13 +90,53 @@ function getYtdlpPath() {
     return null;
 }
 
+function getDenoPath() {
+    const ext = process.platform === 'win32' ? '.exe' : '';
+    const binary = 'deno' + ext;
+
+    // Check extraResources (production)
+    try {
+        const resPath = path.join(process.resourcesPath || '', 'bin', binary);
+        if (fs.existsSync(resPath)) {
+            log('Using extraResources deno:', resPath);
+            return resPath;
+        }
+    } catch {
+        //
+    }
+
+    // Check local bin/ (dev)
+    const devPath = path.join(__dirname, '..', '..', 'bin', binary);
+    if (fs.existsSync(devPath)) {
+        log('Using dev deno:', devPath);
+        return devPath;
+    }
+
+    log('Bundled deno not found, hoping system PATH has it');
+    return null;
+}
+
+// Build env with bundled Deno on PATH so yt-dlp can find it
+function getSpawnEnv() {
+    const env = { ...process.env };
+    const deno = getDenoPath();
+    if (deno) {
+        const denoDir = path.dirname(deno);
+        env.PATH = denoDir + path.delimiter + (env.PATH || '');
+        log('Injected deno dir into PATH:', denoDir);
+    }
+    return env;
+}
+
 function checkDeps() {
     const ytdlp = getYtdlpPath();
     const ffmpeg = getFfmpegPath();
+    const deno = getDenoPath();
 
     const result = {
         ytdlp: { found: !!ytdlp, path: ytdlp },
         ffmpeg: { found: !!ffmpeg && ffmpeg !== 'ffmpeg', path: ffmpeg },
+        deno: { found: !!deno, path: deno },
     };
 
     log('Dependencies:', JSON.stringify(result, null, 2));
@@ -117,7 +157,7 @@ async function fetchInfo(url, { onLog } = {}) {
     _log('Launching yt-dlp...');
     log('Fetching info:', url);
 
-    const args = ['--dump-json', '--no-playlist', '--no-warnings', '--ignore-config', '--socket-timeout', '30'];
+    const args = ['--dump-json', '--no-playlist', '--no-warnings', '--ignore-config', '--no-check-formats', '--socket-timeout', '30'];
     const ffmpeg = getFfmpegPath();
     if (ffmpeg && ffmpeg !== 'ffmpeg') {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
@@ -125,31 +165,8 @@ async function fetchInfo(url, { onLog } = {}) {
     await appendCookieArgs(args, url);
     args.push(url);
 
-    // // Check yt-dlp version
-    // try {
-    //     const { execFileSync } = require('child_process');
-    //     const ver = execFileSync(ytdlp, ['--version'], { timeout: 5000 }).toString().trim();
-    //     _log(`[diag] yt-dlp version: ${ver}`);
-    // } catch (e) {
-    //     _log(`[diag] yt-dlp --version failed: ${e.message}`);
-    // }
-
-    // Check ffmpeg
-    // if (ffmpeg && ffmpeg !== 'ffmpeg') {
-    //     const ffmpegExists = fs.existsSync(ffmpeg);
-    //     let ffmpegExecutable = false;
-    //     try {
-    //         fs.accessSync(ffmpeg, fs.constants.X_OK);
-    //         ffmpegExecutable = true;
-    //     } catch {}
-    //     _log(`[diag] ffmpeg exists: ${ffmpegExists}, executable: ${ffmpegExecutable}`);
-    //     _log(`[diag] --ffmpeg-location: ${path.dirname(ffmpeg)}`);
-    // } else {
-    //     _log(`[diag] ffmpeg: NOT FOUND (fell through to system)`);
-    // }
-
     return new Promise((resolve, reject) => {
-        const proc = spawn(ytdlp, args);
+        const proc = spawn(ytdlp, args, { env: getSpawnEnv() });
         let stdout = '';
         let stderr = '';
         let killed = false;
@@ -378,7 +395,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat },
     log('Download args:', args.join(' '));
 
     return new Promise((resolve, reject) => {
-        const proc = spawn(ytdlp, args);
+        const proc = spawn(ytdlp, args, { env: getSpawnEnv() });
 
         // Parse progress from both stdout and stderr
         function parseOutput(data) {
@@ -462,7 +479,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
     args.push(url);
 
     return new Promise((resolve, reject) => {
-        const proc = spawn(ytdlp, args);
+        const proc = spawn(ytdlp, args, { env: getSpawnEnv() });
         let stderr = '';
         const items = [];
         let buffer = '';
