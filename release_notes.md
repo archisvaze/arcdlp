@@ -1,4 +1,4 @@
-## ArcDLP v1.3.4
+## ArcDLP v1.3.5
 
 ### ⚠️ If you are getting errors on YouTube
 
@@ -12,25 +12,35 @@ This fixes most issues caused by stale cookies or corrupted session data.
 
 ---
 
-### Improvements
+### New
 
-- **Added: Reset app (clear cache) option in Settings.**  
-  You can now fully clear app data including cookies, session storage, and cache, then automatically restart the app. This helps resolve issues where YouTube behaves inconsistently after login.
+- **Added: OPUS audio download option.**  
+  You can now download audio directly as OPUS in addition to MP3.  
+  OPUS provides better quality at smaller file sizes and avoids unnecessary re-encoding in many cases.
+
+- **Improved: Audio format handling.**  
+  Audio extraction is no longer hardcoded to MP3. The selected format now flows correctly through the entire pipeline (UI → queue → yt-dlp).
 
 ---
 
-### Bug Fixes
+### Improvements (from v1.3.4)
+
+- **Added: Reset app (clear cache) option in Settings.**  
+  Fully clears cookies, session storage, and cache, then restarts the app. Useful when YouTube login or downloads behave inconsistently.
+
+---
+
+### Bug Fixes (from v1.3.4)
 
 - **Fixed: "Requested format is not available" on some sites.**  
-  Format selectors were previously too strict and failed on sites that don’t expose separate video/audio streams. Updated to use `bv*+ba/b` with proper fallbacks.
+  Updated format selection to use `bv*+ba/b` with proper fallbacks for broader compatibility.
 
-- **Fixed: Playlist format dropdown had the same issue.**
+- **Fixed: Playlist format dropdown inconsistency.**
 
-- **Fixed: External yt-dlp config could interfere with downloads.**  
-  Now using `--ignore-config` to ensure consistent behavior.
+- **Fixed: External yt-dlp config interference.**  
+  Now using `--ignore-config` to ensure consistent behavior across systems.
 
-- **Fixed: Audio preset claimed "256 Kb/s".**  
-  Removed misleading label.
+- **Fixed: Misleading "256 Kb/s" audio label.**
 
 ---
 
@@ -44,6 +54,6 @@ This fixes most issues caused by stale cookies or corrupted session data.
 
 ### Download
 
-- macOS: `ArcDLP-1.3.4.dmg`
-- Windows: `ArcDLP-Setup-1.3.4.exe`
-- Linux: `ArcDLP-1.3.4.AppImage`
+- macOS: `ArcDLP-1.3.5.dmg`
+- Windows: `ArcDLP-Setup-1.3.5.exe`
+- Linux: `ArcDLP-1.3.5.AppImage`
