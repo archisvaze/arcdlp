@@ -226,6 +226,26 @@
                 </div>
 
                 <div class="settings-section">
+                    <div class="settings-section-title">Network</div>
+                    <div class="settings-row">
+                        <div class="settings-row-info" style="flex:1;min-width:0;">
+                            <div class="settings-row-label">Proxy</div>
+                            <input id="proxyInput" type="text" class="settings-proxy-input"
+                                placeholder="socks5://127.0.0.1:1080" spellcheck="false" autocomplete="off" />
+                        </div>
+                        <div class="settings-row-action">
+                            <button class="btn-sm" onclick="doSaveProxy()">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-hint">
+                        Route downloads through a proxy. Supports HTTP, HTTPS, and SOCKS (e.g.
+                        <code>socks5://host:port</code>). Leave empty for direct connection.
+                    </div>
+                </div>
+
+                <div class="settings-section">
                     <div class="settings-section-title">YouTube Account</div>
                     <div class="settings-row">
                         <div class="settings-row-info">

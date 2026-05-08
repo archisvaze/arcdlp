@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('api', {
     getDownloadPath: () => ipcRenderer.invoke('settings:getDownloadPath'),
     chooseDownloadPath: () => ipcRenderer.invoke('settings:chooseDownloadPath'),
     openFolder: (p) => ipcRenderer.invoke('settings:openFolder', p),
+    getProxy: () => ipcRenderer.invoke('settings:getProxy'),
+    setProxy: (url) => ipcRenderer.invoke('settings:setProxy', url),
     openExternal: (url) => ipcRenderer.invoke('settings:openExternal', url),
 
     getAppInfo: () => ipcRenderer.invoke('app:info'),
