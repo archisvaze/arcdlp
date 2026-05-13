@@ -588,11 +588,11 @@ body {
     font-size: 16px;
     font-weight: 600;
     color: var(--text-2);
-    margin-bottom: 4px;
 }
 
 .empty-state .sub {
     font-size: 13px;
+    margin-top: 4px;
 }
 
 /* Error / Dep banner */

@@ -341,16 +341,21 @@ function buildPresets(formats) {
         });
     }
 
-    // Audio extraction
-    const audioBest = formats
+    // Audio extraction and estimate size per format
+    const audioStreams = formats
         .filter((f) => f.vcodec === 'none' && f.acodec !== 'none' && f.filesize)
-        .sort((a, b) => (b.tbr || 0) - (a.tbr || 0))[0];
+        .sort((a, b) => (b.tbr || 0) - (a.tbr || 0));
+
+    const audioSize = (filterFn) => {
+        const match = audioStreams.find(filterFn);
+        return (match || audioStreams[0])?.filesize || null;
+    };
 
     presets.push({
         id: 'audio-mp3',
         label: 'MP3',
         tag: '',
-        size: formatBytes(audioBest?.filesize),
+        size: formatBytes(audioSize(() => true)),
         formatId: 'ba/b',
         type: 'audio',
         audioFormat: 'mp3',
@@ -360,10 +365,20 @@ function buildPresets(formats) {
         id: 'audio-opus',
         label: 'OPUS',
         tag: '',
-        size: formatBytes(audioBest?.filesize),
-        formatId: 'ba/b',
+        size: formatBytes(audioSize((f) => f.acodec?.includes('opus'))),
+        formatId: 'ba[acodec*=opus]/ba/b',
         type: 'audio',
         audioFormat: 'opus',
+    });
+
+    presets.push({
+        id: 'audio-m4a',
+        label: 'M4A',
+        tag: '',
+        size: formatBytes(audioSize((f) => f.ext === 'm4a')),
+        formatId: 'ba[ext=m4a]/ba/b',
+        type: 'audio',
+        audioFormat: 'm4a',
     });
 
     return presets;
@@ -396,7 +411,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat },
     }
 
     if (extractAudio) {
-        args.push('-x', '--audio-format', audioFormat || 'mp3');
+        args.push('-x', '--audio-format', audioFormat || 'mp3', '--audio-quality', '0');
     } else if (formatId) {
         args.push('-f', formatId, '--merge-output-format', 'mp4');
         // Re-encode audio to AAC for universal playback.
