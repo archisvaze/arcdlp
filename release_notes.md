@@ -9,6 +9,12 @@
 
 ### Improvements
 
+- **Instagram collections: thumbnails and captions.**
+  Scraped Instagram collection items now show thumbnail previews and use the post caption as the title. Long captions are truncated to keep the UI clean.
+
+- **Instagram collections: photos supported.**
+  Collections with a mix of photos, videos, carousels, and reels are all scraped and downloaded. Previously only video posts were reliably handled.
+
 - **Dependency versions in Settings.**
   The Settings → Dependencies section now shows the installed version of yt-dlp, ffmpeg, and Deno. Versions are fetched in the background at launch so the Settings tab opens instantly.
 

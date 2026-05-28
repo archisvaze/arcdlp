@@ -93,7 +93,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
                 if (resolved) return;
 
                 try {
-                    // Collect links from the current page state
+                    // Collect post links with thumbnails from the current page
                     const links = await win.webContents.executeJavaScript(`
                         (() => {
                             const results = [];
@@ -101,7 +101,12 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
                             for (const a of anchors) {
                                 const h = a.getAttribute('href');
                                 if (h && (/^\\/p\\/[\\w-]+/.test(h) || /^\\/reel\\/[\\w-]+/.test(h))) {
-                                    results.push(new URL(h, window.location.origin).href);
+                                    const img = a.querySelector('img');
+                                    results.push({
+                                        url: new URL(h, window.location.origin).href,
+                                        thumbnail: img ? img.src : null,
+                                        alt: img ? (img.alt || '') : '',
+                                    });
                                 }
                             }
                             return results;
@@ -110,20 +115,26 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
 
                     // Process new links
                     let newCount = 0;
-                    for (const link of links) {
-                        if (seen.has(link)) continue;
-                        seen.add(link);
+                    for (const entry of links) {
+                        if (seen.has(entry.url)) continue;
+                        seen.add(entry.url);
                         newCount++;
 
-                        const shortcode = extractShortcode(link);
+                        const shortcode = extractShortcode(entry.url);
+
+                        // Use alt text as title or truncate long captions
+                        let title = entry.alt ? entry.alt.split('\n')[0].trim() : '';
+                        if (title.length > 80) title = title.slice(0, 77) + '...';
+                        if (!title) title = `Post ${items.length + 1}`;
+
                         const item = {
                             id: shortcode,
-                            title: `Post ${items.length + 1}`,
-                            url: link,
-                            webpage_url: link,
+                            title,
+                            url: entry.url,
+                            webpage_url: entry.url,
                             duration: null,
                             duration_string: null,
-                            thumbnail: null,
+                            thumbnail: entry.thumbnail || null,
                             uploader: '',
                             extractor_key: 'Instagram',
                             _playlist_index: items.length + 1,
