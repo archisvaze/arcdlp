@@ -10,10 +10,10 @@
 ### Improvements
 
 - **Instagram collections: thumbnails and captions.**
-  Scraped Instagram collection items now show thumbnail previews and use the post caption as the title. Long captions are truncated to keep the UI clean.
+  Scraped Instagram collection items now show thumbnail previews and use the post caption as the title instead of generic "Post 1", "Post 2" labels.
 
-- **Instagram collections: photos supported.**
-  Collections with a mix of photos, videos, carousels, and reels are all scraped and downloaded. Previously only video posts were reliably handled.
+- **Instagram collections: photo posts filtered out.**
+  Collections with a mix of photos and videos now automatically skip photo posts, since yt-dlp only supports video downloads. If a photo slips through, it fails gracefully without stopping the queue.
 
 - **Dependency versions in Settings.**
   The Settings → Dependencies section now shows the installed version of yt-dlp, ffmpeg, and Deno. Versions are fetched in the background at launch so the Settings tab opens instantly.

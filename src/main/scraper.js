@@ -35,7 +35,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
             resolved = true;
             clearTimeout(timer);
             if (!win.isDestroyed()) win.close();
-            _log(`Scraping complete: ${items.length} post${items.length !== 1 ? 's' : ''} found`);
+            _log(`Scraping complete: ${items.length} video${items.length !== 1 ? 's' : ''} found`);
             resolve({ items });
         }
 
@@ -114,15 +114,22 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
                     `);
 
                     // Process new links
+                    // Track all URLs in seen which include photos so scroll detection stays accurate
                     let newCount = 0;
                     for (const entry of links) {
                         if (seen.has(entry.url)) continue;
                         seen.add(entry.url);
                         newCount++;
 
+                        // Skip photo posts. Instagram auto-generates alt text starting with
+                        // "Photo by" for image posts. Videos use the caption instead.
+                        // If a photo slips through, yt-dlp will fail gracefully and the
+                        // queue moves on to the next item.
+                        if (entry.alt.startsWith('Photo by ')) continue;
+
                         const shortcode = extractShortcode(entry.url);
 
-                        // Use alt text as title or truncate long captions
+                        // Use alt text as title, truncate long captions, fall back to generic
                         let title = entry.alt ? entry.alt.split('\n')[0].trim() : '';
                         if (title.length > 80) title = title.slice(0, 77) + '...';
                         if (!title) title = `Post ${items.length + 1}`;
@@ -145,7 +152,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
 
                     if (newCount > 0) {
                         stableRounds = 0;
-                        _log(`Found ${items.length} posts so far...`);
+                        _log(`Found ${items.length} video${items.length !== 1 ? 's' : ''} so far...`);
                     } else {
                         stableRounds++;
                     }
