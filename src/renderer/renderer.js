@@ -1128,6 +1128,18 @@ async function loadSettings() {
         const ffDot = document.querySelector('#depFfmpegStatus .dep-dot');
         ffEl.textContent = deps.ffmpeg.found ? deps.ffmpeg.path : 'Not found - run npm install';
         ffDot.className = 'dep-dot ' + (deps.ffmpeg.found ? 'ok' : 'missing');
+
+        const denoEl = $('depDenoPath');
+        const denoDot = document.querySelector('#depDenoStatus .dep-dot');
+        denoEl.textContent = deps.deno.found ? deps.deno.path : 'Not found - run npm install';
+        denoDot.className = 'dep-dot ' + (deps.deno.found ? 'ok' : 'missing');
+    } catch {}
+
+    try {
+        const versions = await window.api.getDepVersions();
+        if (versions.ytdlp) $('depYtdlpVersion').textContent = 'v' + versions.ytdlp;
+        if (versions.ffmpeg) $('depFfmpegVersion').textContent = 'v' + versions.ffmpeg;
+        if (versions.deno) $('depDenoVersion').textContent = 'v' + versions.deno;
     } catch {}
 
     try {

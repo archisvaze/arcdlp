@@ -278,7 +278,8 @@
                     <div class="settings-section-title">Dependencies</div>
                     <div class="settings-row">
                         <div class="settings-row-info">
-                            <div class="settings-row-label">yt-dlp</div>
+                            <div class="settings-row-label">yt-dlp <span id="depYtdlpVersion"
+                                    class="dep-version"></span></div>
                             <div id="depYtdlpPath" class="settings-row-value">
                                 Checking...
                             </div>
@@ -291,7 +292,8 @@
                     </div>
                     <div class="settings-row">
                         <div class="settings-row-info">
-                            <div class="settings-row-label">ffmpeg</div>
+                            <div class="settings-row-label">ffmpeg <span id="depFfmpegVersion"
+                                    class="dep-version"></span></div>
                             <div id="depFfmpegPath" class="settings-row-value">
                                 Checking...
                             </div>
@@ -302,13 +304,27 @@
                             </div>
                         </div>
                     </div>
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <div class="settings-row-label">deno <span id="depDenoVersion" class="dep-version"></span>
+                            </div>
+                            <div id="depDenoPath" class="settings-row-value">
+                                Checking...
+                            </div>
+                        </div>
+                        <div class="settings-row-action">
+                            <div id="depDenoStatus" class="settings-dep-status">
+                                <span class="dep-dot"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- About Tab -->
             <div id="tab-about" class="tab-panel">
                 <div class="about-hero">
-                    <div class="about-icon">⬇</div>
+                    <img class="about-icon" src="./icon.png" alt="ArcDLP" />
                     <div class="about-name">ArcDLP</div>
                     <div id="aboutVersion" class="about-version">
                         -
@@ -391,6 +407,8 @@
                     <div class="log-header-actions">
                         <button onclick="clearLog()">Clear</button>
                         <button onclick="doOpenFolder()">Open folder</button>
+                        <button class="log-support-btn"
+                            onclick="openExternal('https://github.com/sponsors/archisvaze')">♥ Support</button>
                     </div>
                 </div>
                 <div id="logBody" class="log-body"></div>

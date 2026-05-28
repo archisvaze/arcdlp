@@ -43,7 +43,6 @@ function openLoginWindow(parentWindow) {
             width: 500,
             height: 700,
             parent: parentWindow || undefined,
-            modal: !!parentWindow,
             title: 'Sign in to YouTube',
             webPreferences: {
                 partition: YT_PARTITION,
@@ -158,7 +157,6 @@ function openInstaLoginWindow(parentWindow) {
             width: 500,
             height: 700,
             parent: parentWindow || undefined,
-            modal: !!parentWindow,
             title: 'Sign in to Instagram',
             webPreferences: {
                 partition: INSTA_PARTITION,

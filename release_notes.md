@@ -1,27 +1,22 @@
-## ArcDLP v1.3.8
+## ArcDLP v1.3.9
 
-### New
+### Bug Fixes
 
-- **Added: M4A audio download option.**
-  You can now download audio as M4A in addition to MP3 and OPUS.
-  M4A (AAC) offers wide device compatibility and good quality, especially for Apple devices.
+- **Fixed: Login windows could not be closed.**
+  The YouTube and Instagram sign-in windows no longer lock the app. You can close them at any time without force-quitting.
 
 ---
 
 ### Improvements
 
-- **Audio quality set to maximum.**
-  Audio extraction now uses `--audio-quality 0` (best) for all formats.
+- **Dependency versions in Settings.**
+  The Settings → Dependencies section now shows the installed version of yt-dlp, ffmpeg, and Deno. Versions are fetched in the background at launch so the Settings tab opens instantly.
 
-- **OPUS format selection improved.**
-  OPUS downloads now prefer actual Opus-encoded streams (`ba[acodec*=opus]`) instead of falling back to a generic best-audio pick.
+- **Deno added to Dependencies.**
+  Deno is now listed alongside yt-dlp and ffmpeg in Settings → Dependencies with its own status indicator and version.
 
----
-
-### Bug Fixes
-
-- **Fixed: All audio formats showing the same file size.**
-  MP3, OPUS, and M4A each now show an estimated size based on their own matching audio stream, instead of all displaying the best stream's size.
+- **App icon in About tab.**
+  The About tab now shows the ArcDLP icon.
 
 ---
 
@@ -35,6 +30,6 @@
 
 ### Download
 
-- macOS: `ArcDLP-1.3.8.dmg`
-- Windows: `ArcDLP-Setup-1.3.8.exe`
-- Linux: `ArcDLP-1.3.8.AppImage`
+- macOS: `ArcDLP-1.3.9.dmg`
+- Windows: `ArcDLP-Setup-1.3.9.exe`
+- Linux: `ArcDLP-1.3.9.AppImage`

@@ -33,6 +33,7 @@ const store = new Store({
 });
 
 let mainWindow = null;
+let cachedVersions = { ytdlp: null, ffmpeg: null, deno: null };
 
 function send(channel, data) {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -91,6 +92,17 @@ app.whenReady().then(() => {
     log('App starting, DEV_MODE:', DEV_MODE);
     log('Platform:', process.platform, process.arch);
     createWindow();
+
+    // Fetch dependency versions in the background
+    ytdlp
+        .getVersions()
+        .then((v) => {
+            cachedVersions = v;
+            log('Versions cached:', JSON.stringify(v));
+        })
+        .catch((err) => {
+            logError('Version fetch failed:', err.message);
+        });
 
     // Wire queue callbacks to renderer
     queue.setCallbacks({
@@ -172,6 +184,10 @@ ipcMain.handle('history:clear', () => {
 ipcMain.handle('deps:check', () => {
     log('Checking dependencies...');
     return ytdlp.checkDeps();
+});
+
+ipcMain.handle('deps:versions', () => {
+    return cachedVersions;
 });
 
 ipcMain.handle('video:fetch', async (_e, url) => {

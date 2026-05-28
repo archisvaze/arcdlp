@@ -900,6 +900,13 @@ body {
     background: var(--danger);
 }
 
+.dep-version {
+    font-size: 11px;
+    color: var(--text-3);
+    font-weight: 400;
+    margin-left: 4px;
+}
+
 .settings-hint {
     font-size: 12px;
     color: var(--text-3);
@@ -987,6 +994,16 @@ body {
 .log-header-actions button:hover {
     color: #d1d5db;
     background: rgba(255, 255, 255, 0.06);
+}
+
+.log-support-btn {
+    color: #e8789a !important;
+    opacity: 0.7;
+}
+
+.log-support-btn:hover {
+    opacity: 1;
+    color: #f0a0b8 !important;
 }
 
 .log-body {
@@ -1447,9 +1464,10 @@ body {
 }
 
 .about-icon {
-    font-size: 48px;
+    width: 72px;
+    height: 72px;
     margin-bottom: 8px;
-    opacity: 0.4;
+    border-radius: 16px;
 }
 
 .about-name {

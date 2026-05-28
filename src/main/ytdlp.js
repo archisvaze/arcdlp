@@ -1,7 +1,7 @@
 // yt-dlp Engine
 // Handles: binary resolution, video info fetching, downloading with structured progress output.
 
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { log, logError } = require('./utils');
@@ -141,6 +141,60 @@ function checkDeps() {
 
     log('Dependencies:', JSON.stringify(result, null, 2));
     return result;
+}
+
+function execVersion(binPath, args) {
+    return new Promise((resolve) => {
+        const proc = execFile(binPath, args, { encoding: 'utf8', timeout: 1000000 }, (err, stdout) => {
+            if (err) return resolve(null);
+            resolve(stdout);
+        });
+    });
+}
+
+async function getVersions() {
+    const versions = { ytdlp: null, ffmpeg: null, deno: null };
+
+    const ytdlpPath = getYtdlpPath();
+    if (ytdlpPath) {
+        try {
+            const out = await execVersion(ytdlpPath, ['--version']);
+            if (out) versions.ytdlp = out.trim();
+        } catch (err) {
+            logError('yt-dlp version check failed:', err.message);
+        }
+    }
+
+    const ffmpegPath = getFfmpegPath();
+    if (ffmpegPath && ffmpegPath !== 'ffmpeg') {
+        try {
+            const out = await execVersion(ffmpegPath, ['-version']);
+            if (out) {
+                const match = out.match(/ffmpeg version (\S+)/);
+                versions.ffmpeg = match ? match[1] : out.split('\n')[0].trim();
+            }
+        } catch (err) {
+            logError('ffmpeg version check failed:', err.message);
+        }
+    }
+
+    const denoPath = getDenoPath();
+    if (denoPath) {
+        try {
+            const out = await execVersion(denoPath, ['--version']);
+            if (out) {
+                versions.deno = out
+                    .split('\n')[0]
+                    .replace(/^deno\s+/, '')
+                    .trim();
+            }
+        } catch (err) {
+            logError('deno version check failed:', err.message);
+        }
+    }
+
+    log('Versions:', JSON.stringify(versions));
+    return versions;
 }
 
 async function fetchInfo(url, { onLog } = {}) {
@@ -637,6 +691,7 @@ function looksLikePlaylist(url) {
 
 module.exports = {
     checkDeps,
+    getVersions,
     fetchInfo,
     fetchPlaylist,
     looksLikePlaylist,
