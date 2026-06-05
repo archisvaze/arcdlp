@@ -4,6 +4,12 @@ let selectedPreset = null;
 let isFetching = false;
 let historyCache = [];
 
+// Fetch queue - allows multiple URLs to be fetched without blocking
+let fetchQueue = [];
+let fetchQueueIdCounter = 0;
+let isFetchProcessing = false;
+let activeFetchId = null;
+
 let playlistItems = [];
 let playlistSelected = new Set();
 let isPlaylistMode = false;
@@ -39,6 +45,10 @@ const $audFmts = $('audioFormats');
 const $dlBtn = $('dlBtn');
 const $logBody = $('logBody');
 const $toastContainer = $('toastContainer');
+
+// Fetch panel
+const $fetchPanel = $('fetchPanel');
+const $fetchPanelItems = $('fetchPanelItems');
 
 // History
 const $historyList = $('historyList');
@@ -194,7 +204,6 @@ $url.addEventListener('keydown', (e) => {
 async function doFetch() {
     const url = $url.value.trim();
     if (!url) return;
-    if (isFetching) return;
 
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
         showError('Please enter a valid URL starting with http:// or https://');
@@ -202,59 +211,325 @@ async function doFetch() {
     }
 
     hideError();
-    hideCard();
-    hidePlaylist();
 
-    isFetching = true;
-    $fetchBtn.disabled = true;
-    $fetchBtn.innerHTML = '<span class="spinner"></span> Fetching';
-
-    try {
-        const isInstaCollection = isInstagramCollection(url);
-
-        if (isInstaCollection) {
-            addLog('Detected Instagram saved collection', 'highlight');
-            await fetchInstaCollection(url);
-        } else {
-            const isPlaylist = await window.api.detectPlaylist(url);
-
-            if (isPlaylist) {
-                addLog('Detected playlist URL, fetching items...', 'highlight');
-                await fetchPlaylist(url);
-            } else {
-                addLog('Fetching video info...', 'highlight');
-                await fetchSingleVideo(url);
-            }
-        }
-    } catch (err) {
-        const msg = err.message || 'Failed to fetch';
-        addLog('Fetch failed: ' + msg, 'error');
-
-        // Reset any partially shown UI
+    // Instagram collections and playlists use the original blocking flow because they have streaming UI that needs the main panel
+    const isInstaCollection = isInstagramCollection(url);
+    if (isInstaCollection) {
+        if (isFetching) return;
         hideCard();
         hidePlaylist();
-        $empty.style.display = 'block';
+        isFetching = true;
+        $fetchBtn.disabled = true;
+        $fetchBtn.innerHTML = '<span class="spinner"></span> Fetching';
+        activeFetchId = null;
 
-        if (isAuthError(msg)) {
-            showAuthError();
-        } else if (msg.includes('Instagram login required') || msg.includes('Sign in via Settings')) {
-            showInstaAuthError();
-        } else if (msg.includes('not found') || msg.includes('Cannot run')) {
-            showError('yt-dlp binary not found. Run `npm install` to download it.');
-        } else if (msg.includes('Unsupported URL') || msg.includes('No video formats')) {
-            showError('This URL is not supported or the video is unavailable.');
-        } else if (msg.includes('HTTP Error 403') || msg.includes('HTTP Error 429')) {
-            showError('Access denied or rate limited. Try again later.');
-        } else if (msg.includes('timed out') || msg.includes('ETIMEDOUT') || msg.includes('ENOTFOUND')) {
-            showError('Network error. Check your internet connection.');
-        } else {
-            showError(msg);
+        try {
+            addLog('Detected Instagram saved collection', 'highlight');
+            await fetchInstaCollection(url);
+        } catch (err) {
+            handleFetchError(err);
+        } finally {
+            isFetching = false;
+            $fetchBtn.disabled = false;
+            $fetchBtn.textContent = 'Fetch';
         }
-    } finally {
-        isFetching = false;
-        $fetchBtn.disabled = false;
-        $fetchBtn.textContent = 'Fetch';
+        return;
     }
+
+    let isPlaylist = false;
+    try {
+        isPlaylist = await window.api.detectPlaylist(url);
+    } catch {
+        //
+    }
+
+    if (isPlaylist) {
+        if (isFetching) return;
+        hideCard();
+        hidePlaylist();
+        isFetching = true;
+        $fetchBtn.disabled = true;
+        $fetchBtn.innerHTML = '<span class="spinner"></span> Fetching';
+        activeFetchId = null;
+
+        try {
+            addLog('Detected playlist URL, fetching items...', 'highlight');
+            await fetchPlaylist(url);
+        } catch (err) {
+            handleFetchError(err);
+        } finally {
+            isFetching = false;
+            $fetchBtn.disabled = false;
+            $fetchBtn.textContent = 'Fetch';
+        }
+        return;
+    }
+
+    // Single video add to fetch queue
+    // Prevent duplicate URLs already in the queue and still fetching
+    const alreadyQueued = fetchQueue.find((item) => item.url === url && item.status === 'fetching');
+    if (alreadyQueued) {
+        showToast('Already fetching this URL');
+        return;
+    }
+
+    addToFetchQueue(url);
+    $url.value = '';
+    $url.focus();
+}
+
+function handleFetchError(err) {
+    const msg = err.message || 'Failed to fetch';
+    addLog('Fetch failed: ' + msg, 'error');
+
+    hideCard();
+    hidePlaylist();
+    $empty.style.display = 'block';
+
+    if (isAuthError(msg)) {
+        showAuthError();
+    } else if (msg.includes('Instagram login required') || msg.includes('Sign in via Settings')) {
+        showInstaAuthError();
+    } else if (msg.includes('not found') || msg.includes('Cannot run')) {
+        showError('yt-dlp binary not found. Run `npm install` to download it.');
+    } else if (msg.includes('Unsupported URL') || msg.includes('No video formats')) {
+        showError('This URL is not supported or the video is unavailable.');
+    } else if (msg.includes('HTTP Error 403') || msg.includes('HTTP Error 429')) {
+        showError('Access denied or rate limited. Try again later.');
+    } else if (msg.includes('timed out') || msg.includes('ETIMEDOUT') || msg.includes('ENOTFOUND')) {
+        showError('Network error. Check your internet connection.');
+    } else {
+        showError(msg);
+    }
+}
+
+// Fetch Queue
+
+function addToFetchQueue(url) {
+    const item = {
+        id: ++fetchQueueIdCounter,
+        url: url,
+        status: 'fetching', // fetching | ready | error
+        info: null,
+        presets: [],
+        error: null,
+    };
+    fetchQueue.push(item);
+    renderFetchPanel();
+    addLog('Fetching: ' + url, 'highlight');
+
+    if (!isFetchProcessing) {
+        processFetchQueue();
+    }
+}
+
+async function processFetchQueue() {
+    if (isFetchProcessing) return;
+
+    const next = fetchQueue.find((item) => item.status === 'fetching');
+    if (!next) {
+        isFetchProcessing = false;
+        return;
+    }
+
+    isFetchProcessing = true;
+
+    try {
+        const result = await window.api.fetchVideo(next.url);
+        // Item may have been removed while we were fetching
+        if (!fetchQueue.find((item) => item.id === next.id)) {
+            isFetchProcessing = false;
+            processFetchQueue();
+            return;
+        }
+
+        next.status = 'ready';
+        next.info = result.info;
+        next.presets = result.presets;
+
+        addLog(`Fetched: ${next.info.title}`, 'success');
+
+        // Auto-select the first completed item, or if nothing is currently shown
+        // But don't clobber the playlist/collection UI if one is active
+        if (!isPlaylistMode) {
+            const nothingShown = !activeFetchId || !fetchQueue.find((i) => i.id === activeFetchId && i.status === 'ready');
+            if (nothingShown) {
+                selectFetchItem(next.id);
+            }
+        }
+
+        renderFetchPanel();
+        updateHistoryCount();
+    } catch (err) {
+        // item may have been removed
+        if (!fetchQueue.find((item) => item.id === next.id)) {
+            isFetchProcessing = false;
+            processFetchQueue();
+            return;
+        }
+
+        next.status = 'error';
+        next.error = err.message || 'Failed to fetch';
+        addLog('Fetch failed: ' + next.error, 'error');
+        renderFetchPanel();
+    }
+
+    isFetchProcessing = false;
+
+    // Process next item in queue
+    const hasMore = fetchQueue.find((item) => item.status === 'fetching');
+    if (hasMore) {
+        processFetchQueue();
+    }
+}
+
+function selectFetchItem(id) {
+    const item = fetchQueue.find((i) => i.id === id);
+    if (!item || item.status !== 'ready') return;
+
+    activeFetchId = id;
+    videoInfo = item.info;
+    presets = item.presets;
+    selectedPreset = null;
+    isPlaylistMode = false;
+
+    hideError();
+    hidePlaylist();
+    showCard();
+    showClearBtn();
+    renderFetchPanel();
+}
+
+function removeFetchItem(id) {
+    fetchQueue = fetchQueue.filter((i) => i.id !== id);
+    if (activeFetchId === id) {
+        activeFetchId = null;
+        // show next ready item if available, otherwise show empty state
+        const nextReady = fetchQueue.find((i) => i.status === 'ready');
+        if (nextReady) {
+            selectFetchItem(nextReady.id);
+        } else {
+            hideCard();
+            hidePlaylist();
+            $empty.style.display = 'block';
+            videoInfo = null;
+            presets = [];
+            selectedPreset = null;
+            $clearBtn.style.display = 'none';
+        }
+    }
+    renderFetchPanel();
+}
+
+function clearFetchQueue() {
+    fetchQueue = [];
+    activeFetchId = null;
+    renderFetchPanel();
+}
+
+function retryFetchItem(id) {
+    const item = fetchQueue.find((i) => i.id === id);
+    if (!item || item.status !== 'error') return;
+
+    item.status = 'fetching';
+    item.error = null;
+    renderFetchPanel();
+    addLog('Retrying: ' + item.url, 'highlight');
+
+    if (!isFetchProcessing) {
+        processFetchQueue();
+    }
+}
+
+function renderFetchPanel() {
+    if (fetchQueue.length === 0) {
+        $fetchPanel.classList.remove('visible');
+        return;
+    }
+
+    $fetchPanel.classList.add('visible');
+
+    $fetchPanelItems.innerHTML = fetchQueue
+        .map((item) => {
+            const isActive = item.id === activeFetchId;
+            const stateClass = item.status === 'error' ? 'error' : item.status === 'fetching' ? 'fetching' : '';
+            const activeClass = isActive ? 'active' : '';
+            const title = item.info ? escapeHtml(item.info.title || 'Untitled') : escapeHtml(truncateUrl(item.url));
+
+            let thumbHtml;
+            if (item.info && item.info.thumbnail) {
+                thumbHtml = `<img class="fp-item-thumb" src="${escapeHtml(item.info.thumbnail)}" alt="" onerror="this.style.display='none'" />`;
+            } else {
+                thumbHtml = `<div class="fp-item-thumb-placeholder">${item.status === 'fetching' ? '<div class="fp-item-spinner"></div>' : '🎬'}</div>`;
+            }
+
+            let statusHtml;
+            if (item.status === 'fetching') {
+                statusHtml = '<span class="fp-item-status fetching-status">Fetching...</span>';
+            } else if (item.status === 'error') {
+                statusHtml = `<span class="fp-item-status error-status">${escapeHtml(truncateText(item.error, 30))}</span>`;
+            } else {
+                const source = item.info?.extractor_key || '';
+                const duration = item.info?.duration_string || '';
+                const parts = [source, duration].filter(Boolean).join(' · ');
+                statusHtml = `<span class="fp-item-status ready-status">${parts || 'Ready'}</span>`;
+            }
+
+            let actionsHtml = '';
+            if (item.status === 'error') {
+                actionsHtml = `<button class="fp-item-remove" data-action="retry" data-id="${item.id}" title="Retry">↻</button>`;
+            }
+            actionsHtml += `<button class="fp-item-remove" data-action="remove" data-id="${item.id}" title="Remove">×</button>`;
+
+            return `
+                <div class="fp-item ${stateClass} ${activeClass}" data-id="${item.id}">
+                    ${thumbHtml}
+                    <div class="fp-item-info">
+                        <div class="fp-item-title">${title}</div>
+                        ${statusHtml}
+                    </div>
+                    ${actionsHtml}
+                </div>`;
+        })
+        .join('');
+
+    // Attach click listeners
+    $fetchPanelItems.querySelectorAll('.fp-item').forEach((el) => {
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('[data-action]')) return;
+            const id = parseInt(el.dataset.id);
+            selectFetchItem(id);
+        });
+    });
+
+    $fetchPanelItems.querySelectorAll('[data-action="remove"]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeFetchItem(parseInt(btn.dataset.id));
+        });
+    });
+
+    $fetchPanelItems.querySelectorAll('[data-action="retry"]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            retryFetchItem(parseInt(btn.dataset.id));
+        });
+    });
+}
+
+function truncateUrl(url) {
+    try {
+        const u = new URL(url);
+        const path = u.pathname.length > 20 ? u.pathname.slice(0, 20) + '...' : u.pathname;
+        return u.hostname + path;
+    } catch {
+        return url.length > 40 ? url.slice(0, 40) + '...' : url;
+    }
+}
+
+function truncateText(text, max) {
+    if (!text) return '';
+    return text.length > max ? text.slice(0, max - 3) + '...' : text;
 }
 
 function doClear() {
@@ -266,27 +541,14 @@ function doClear() {
     videoInfo = null;
     presets = [];
     selectedPreset = null;
+    activeFetchId = null;
     $clearBtn.style.display = 'none';
+    renderFetchPanel();
     $url.focus();
 }
 
 function showClearBtn() {
     $clearBtn.style.display = '';
-}
-
-async function fetchSingleVideo(url) {
-    const result = await window.api.fetchVideo(url);
-    videoInfo = result.info;
-    presets = result.presets;
-    selectedPreset = null;
-    isPlaylistMode = false;
-
-    addLog(`Video: ${videoInfo.title}`, 'success');
-    addLog(`${presets.length} quality options available`);
-
-    showCard();
-    showClearBtn();
-    updateHistoryCount();
 }
 
 async function fetchPlaylist(url) {
@@ -503,8 +765,31 @@ async function doDownload() {
         addLog(`Added to queue: ${videoInfo.title}`, 'highlight');
         showToast('Added to queue');
 
-        // Auto-switch to queue tab on first add
-        if (!hasAutoSwitchedToQueue) {
+        // Remove from fetch panel and load next ready item
+        if (activeFetchId) {
+            const removedId = activeFetchId;
+            fetchQueue = fetchQueue.filter((i) => i.id !== removedId);
+            activeFetchId = null;
+
+            const nextReady = fetchQueue.find((i) => i.status === 'ready');
+            if (nextReady) {
+                selectFetchItem(nextReady.id);
+            } else {
+                videoInfo = null;
+                presets = [];
+                selectedPreset = null;
+                hideCard();
+                $clearBtn.style.display = 'none';
+                if (fetchQueue.length === 0) {
+                    $empty.style.display = 'block';
+                }
+            }
+            renderFetchPanel();
+        }
+
+        // Auto-switch to queue tab on first add, but only if no more items need attention
+        const hasMoreFetchItems = fetchQueue.some((i) => i.status === 'ready' || i.status === 'fetching');
+        if (!hasAutoSwitchedToQueue && !hasMoreFetchItems) {
             hasAutoSwitchedToQueue = true;
             switchTab('queue');
         }
@@ -1057,6 +1342,7 @@ function loadFromHistory(idx) {
     presets = entry.presets;
     selectedPreset = null;
     isPlaylistMode = false;
+    activeFetchId = null;
 
     $url.value = videoInfo.webpage_url || '';
     hideError();
@@ -1064,6 +1350,7 @@ function loadFromHistory(idx) {
     switchTab('download');
     showCard();
     showClearBtn();
+    renderFetchPanel();
 }
 
 async function removeHistoryItem(videoId, extractorKey) {

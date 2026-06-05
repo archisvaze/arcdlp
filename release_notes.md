@@ -1,28 +1,34 @@
-## ArcDLP v1.3.9
+## ArcDLP v1.4.0
 
-### Bug Fixes
+### New Feature
 
-- **Fixed: Login windows could not be closed.**
-  The YouTube and Instagram sign-in windows no longer lock the app. You can close them at any time without force-quitting.
+- **Fetch multiple URLs without waiting.**
+  Paste a URL and click Fetch - then immediately paste another. The Fetch button
+  stays enabled. Each result appears in a side panel as it completes. Click any
+  item to review it, pick a quality, and add it to the download queue. Adding a
+  video removes it from the panel and auto-loads the next one.
 
 ---
 
 ### Improvements
 
-- **Instagram collections: thumbnails and captions.**
-  Scraped Instagram collection items now show thumbnail previews and use the post caption as the title instead of generic "Post 1", "Post 2" labels.
+- **Conveyor belt workflow.**
+  After adding a video to the queue, the next fetched result loads automatically
+  into the video card. No need to click through the panel manually unless you
+  want to skip around.
 
-- **Instagram collections: photo posts filtered out.**
-  Collections with a mix of photos and videos now automatically skip photo posts, since yt-dlp only supports video downloads. If a photo slips through, it fails gracefully without stopping the queue.
+- **Smarter auto-switch to Queue tab.**
+  The app no longer switches to the Queue tab immediately after adding the first
+  download if there are more fetched items waiting for review.
 
-- **Dependency versions in Settings.**
-  The Settings → Dependencies section now shows the installed version of yt-dlp, ffmpeg, and Deno. Versions are fetched in the background at launch so the Settings tab opens instantly.
+---
 
-- **Deno added to Dependencies.**
-  Deno is now listed alongside yt-dlp and ffmpeg in Settings → Dependencies with its own status indicator and version.
+### Technical Notes
 
-- **App icon in About tab.**
-  The About tab now shows the ArcDLP icon.
+- Fetches run sequentially (one yt-dlp process at a time) to avoid rate limiting
+  from video sites. Playlists and Instagram collections still use the existing
+  blocking flow with streaming UI.
+- No backend changes. The fetch queue is purely renderer-side state.
 
 ---
 
@@ -36,6 +42,6 @@
 
 ### Download
 
-- macOS: `ArcDLP-1.3.9.dmg`
-- Windows: `ArcDLP-Setup-1.3.9.exe`
-- Linux: `ArcDLP-1.3.9.AppImage`
+- macOS: `ArcDLP-1.4.0.dmg`
+- Windows: `ArcDLP-Setup-1.4.0.exe`
+- Linux: `ArcDLP-1.4.0.AppImage`

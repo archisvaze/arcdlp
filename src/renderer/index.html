@@ -51,95 +51,108 @@
                     </button>
                 </div>
 
-                <div id="errorMsg" class="error-msg"></div>
+                <div class="dl-content">
+                    <div class="dl-main">
+                        <div id="errorMsg" class="error-msg"></div>
 
-                <!-- Single Video Card -->
-                <div id="videoCard" class="video-card">
-                    <div class="video-top">
-                        <div id="thumbWrap" class="video-thumb-wrap">
-                            <img id="vThumb" class="video-thumb" src="" alt="" />
-                            <div class="thumb-error">🎬</div>
-                            <div id="vDuration" class="video-duration"></div>
-                        </div>
-                        <div class="video-info">
-                            <div id="vTitle" class="video-title"></div>
-                            <div id="vChannel" class="video-channel"></div>
-                            <div id="vMeta" class="video-meta"></div>
-                        </div>
-                    </div>
-
-                    <div class="section-label">Download video</div>
-                    <div id="videoFormats" class="format-list"></div>
-
-                    <hr class="sep" />
-
-                    <div class="section-label">Extract audio</div>
-                    <div id="audioFormats" class="format-list"></div>
-
-                    <button id="dlBtn" class="btn-download" onclick="doDownload()">
-                        Add to Queue
-                    </button>
-                </div>
-
-                <!-- Playlist Card -->
-                <div id="playlistCard" class="playlist-card">
-                    <div class="playlist-header">
-                        <div class="playlist-header-info">
-                            <div class="playlist-badge">PLAYLIST</div>
-                            <span id="plItemCount" class="playlist-count">0 items</span>
-                        </div>
-                        <div class="playlist-header-actions">
-                            <button class="btn-sm" onclick="playlistSelectAll()">
-                                Select all
-                            </button>
-                            <button class="btn-sm" onclick="playlistDeselectAll()">
-                                Deselect all
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="playlistItems" class="playlist-items"></div>
-
-                    <div id="plFooter" class="playlist-footer" style="display: none">
-                        <div class="playlist-format-row">
-                            <div class="section-label" style="margin-bottom: 0">
-                                Format for all
+                        <!-- Single Video Card -->
+                        <div id="videoCard" class="video-card">
+                            <div class="video-top">
+                                <div id="thumbWrap" class="video-thumb-wrap">
+                                    <img id="vThumb" class="video-thumb" src="" alt="" />
+                                    <div class="thumb-error">🎬</div>
+                                    <div id="vDuration" class="video-duration"></div>
+                                </div>
+                                <div class="video-info">
+                                    <div id="vTitle" class="video-title"></div>
+                                    <div id="vChannel" class="video-channel"></div>
+                                    <div id="vMeta" class="video-meta"></div>
+                                </div>
                             </div>
-                            <select id="plFormatSelect" class="pl-format-select">
-                                <option value="bv*+ba/b">Best quality</option>
-                                <option value="bv*[height<=2160]+ba/b[height<=2160]/b">4K</option>
-                                <option value="bv*[height<=1440]+ba/b[height<=1440]/b">2K</option>
-                                <option value="bv*[height<=1080]+ba/b[height<=1080]/b" selected>
-                                    1080p
-                                </option>
-                                <option value="bv*[height<=720]+ba/b[height<=720]/b">720p</option>
-                                <option value="bv*[height<=480]+ba/b[height<=480]/b">480p</option>
-                                <option value="ba/b" data-audio="true" data-format="mp3">
-                                    MP3 (audio only)
-                                </option>
-                                <option value="ba/b" data-audio="true" data-format="m4a">
-                                    M4A (audio only)
-                                </option>
-                                <option value="ba/b" data-audio="true" data-format="opus">
-                                    OPUS (audio only)
-                                </option>
-                            </select>
-                        </div>
-                        <div class="pl-format-note">If a video doesn't have the selected quality, the best available
-                            will be used.</div>
-                        <button id="plDownloadBtn" class="btn-download" onclick="doPlaylistDownload()">
-                            Add Selected to Queue
-                        </button>
-                    </div>
-                </div>
 
-                <div id="emptyState" class="empty-state">
-                    <div class="icon">⬇</div>
-                    <div class="title">Paste a video or playlist URL</div>
-                    <div class="sub">
-                        Press <kbd>Ctrl</kbd> + <kbd>V</kbd> or <kbd>⌘</kbd> + <kbd>V</kbd>
+                            <div class="section-label">Download video</div>
+                            <div id="videoFormats" class="format-list"></div>
+
+                            <hr class="sep" />
+
+                            <div class="section-label">Extract audio</div>
+                            <div id="audioFormats" class="format-list"></div>
+
+                            <button id="dlBtn" class="btn-download" onclick="doDownload()">
+                                Add to Queue
+                            </button>
+                        </div>
+
+                        <!-- Playlist Card -->
+                        <div id="playlistCard" class="playlist-card">
+                            <div class="playlist-header">
+                                <div class="playlist-header-info">
+                                    <div class="playlist-badge">PLAYLIST</div>
+                                    <span id="plItemCount" class="playlist-count">0 items</span>
+                                </div>
+                                <div class="playlist-header-actions">
+                                    <button class="btn-sm" onclick="playlistSelectAll()">
+                                        Select all
+                                    </button>
+                                    <button class="btn-sm" onclick="playlistDeselectAll()">
+                                        Deselect all
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="playlistItems" class="playlist-items"></div>
+
+                            <div id="plFooter" class="playlist-footer" style="display: none">
+                                <div class="playlist-format-row">
+                                    <div class="section-label" style="margin-bottom: 0">
+                                        Format for all
+                                    </div>
+                                    <select id="plFormatSelect" class="pl-format-select">
+                                        <option value="bv*+ba/b">Best quality</option>
+                                        <option value="bv*[height<=2160]+ba/b[height<=2160]/b">4K</option>
+                                        <option value="bv*[height<=1440]+ba/b[height<=1440]/b">2K</option>
+                                        <option value="bv*[height<=1080]+ba/b[height<=1080]/b" selected>
+                                            1080p
+                                        </option>
+                                        <option value="bv*[height<=720]+ba/b[height<=720]/b">720p</option>
+                                        <option value="bv*[height<=480]+ba/b[height<=480]/b">480p</option>
+                                        <option value="ba/b" data-audio="true" data-format="mp3">
+                                            MP3 (audio only)
+                                        </option>
+                                        <option value="ba/b" data-audio="true" data-format="m4a">
+                                            M4A (audio only)
+                                        </option>
+                                        <option value="ba/b" data-audio="true" data-format="opus">
+                                            OPUS (audio only)
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="pl-format-note">If a video doesn't have the selected quality, the best
+                                    available
+                                    will be used.</div>
+                                <button id="plDownloadBtn" class="btn-download" onclick="doPlaylistDownload()">
+                                    Add Selected to Queue
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="emptyState" class="empty-state">
+                            <div class="icon">⬇</div>
+                            <div class="title">Paste a video or playlist URL</div>
+                            <div class="sub">
+                                Press <kbd>Ctrl</kbd> + <kbd>V</kbd> or <kbd>⌘</kbd> + <kbd>V</kbd>
+                            </div>
+                            <div class="sub">YouTube, Vimeo, Twitter, Instagram collections, and thousands more</div>
+                        </div>
                     </div>
-                    <div class="sub">YouTube, Vimeo, Twitter, Instagram collections, and thousands more</div>
+
+                    <div id="fetchPanel" class="fetch-panel">
+                        <div class="fetch-panel-header">
+                            <span class="fetch-panel-title">Fetched</span>
+                            <button class="btn-ghost fetch-panel-clear" onclick="clearFetchQueue()">Clear</button>
+                        </div>
+                        <div id="fetchPanelItems" class="fetch-panel-items"></div>
+                    </div>
                 </div>
             </div>
 
@@ -337,9 +350,28 @@
 
                 <div class="about-description">
                     A simple desktop app for downloading videos and audio from YouTube, Vimeo, Twitter, Instagram, and
-                    thousands of
-                    other sites.
-                    Powered by yt-dlp.
+                    thousands of other sites. Powered by yt-dlp.
+                </div>
+
+                <div class="about-links">
+                    <a class="about-link" href="#" onclick="
+                                openExternal('https://github.com/archisvaze/arcdlp/issues');
+                                return false;
+                            ">
+                        <span class="about-link-icon">🐛</span> Report a Bug
+                    </a>
+                    <a class="about-link" href="#" onclick="
+                                openExternal('https://github.com/sponsors/archisvaze');
+                                return false;
+                            ">
+                        <span class="about-link-icon">❤️</span> Sponsor on GitHub
+                    </a>
+                    <a class="about-link" href="#" onclick="
+                                openExternal('https://buymeacoffee.com/archisvaze');
+                                return false;
+                            ">
+                        <span class="about-link-icon">☕</span> Buy Me a Coffee
+                    </a>
                 </div>
 
                 <div class="about-section">
@@ -360,33 +392,6 @@
                                 ">Settings</a>. Use the "Open folder" button in the Queue tab to find your files
                         quickly.
                     </div>
-                </div>
-
-                <div class="about-links">
-                    <a class="about-link" href="#" onclick="
-                                openExternal('https://github.com/archisvaze/arcdlp');
-                                return false;
-                            ">
-                        <span class="about-link-icon">📦</span> GitHub
-                    </a>
-                    <a class="about-link" href="#" onclick="
-                                openExternal('https://github.com/archisvaze/arcdlp/issues');
-                                return false;
-                            ">
-                        <span class="about-link-icon">🐛</span> Report a Bug
-                    </a>
-                    <a class="about-link" href="#" onclick="
-                                openExternal('https://github.com/sponsors/archisvaze');
-                                return false;
-                            ">
-                        <span class="about-link-icon">💜</span> Sponsor on GitHub
-                    </a>
-                    <a class="about-link" href="#" onclick="
-                                openExternal('https://buymeacoffee.com/archisvaze');
-                                return false;
-                            ">
-                        <span class="about-link-icon">☕</span> Buy Me a Coffee
-                    </a>
                 </div>
 
                 <div class="about-footer-text">

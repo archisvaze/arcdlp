@@ -77,7 +77,8 @@ Settings > Apps.
 
 - **Single video downloads** - Fetch video info, preview metadata, choose
   quality (4K/2K/1080p/720p/480p/360p/240p), and download as MP4 or extract
-  audio as MP3
+  audio as MP3. Fetch multiple URLs back-to-back without waiting - each result
+  appears in a side panel for quick review and queueing
 - **Playlist support** - Paste a playlist URL, select which items to download,
   pick a format, and queue them all at once
 - **Instagram saved collections** - Paste a saved collection URL, the app scrapes
@@ -104,6 +105,11 @@ Settings > Apps.
 3. Click **Add to Queue**
 4. Downloads are saved to `~/Downloads/ArcDLP` by default (changeable in
    Settings)
+
+You can paste and fetch additional URLs while reviewing results. Each fetched
+video appears in a side panel - click any item to review it, pick a quality, and
+add it to the queue. Adding a video to the queue automatically loads the next
+one.
 
 For playlists, you can select/deselect individual items and choose a format for
 the whole batch before queueing.
@@ -263,11 +269,16 @@ arcdlp/
 
 1. User pastes a URL and clicks Fetch
 2. App spawns `yt-dlp --dump-json` to get video metadata and available formats
-3. User picks a quality preset or audio extraction
-4. Click "Add to Queue" - the download is queued and processed sequentially
+3. Result appears in a side panel. User picks a quality preset or audio
+   extraction
+4. Click "Add to Queue" - the download is queued, the result is removed from the
+   panel, and the next fetched item loads automatically
 5. yt-dlp handles the actual download with `--progress-template` for structured
    progress output
 6. Completed files are saved to the configured download folder
+
+Multiple URLs can be fetched back-to-back. Each fetch runs sequentially (to
+avoid rate limiting from video sites) and results accumulate in the side panel.
 
 For playlists, the app uses `--flat-playlist --dump-json` to stream items one at
 a time, then queues selected items for download.
