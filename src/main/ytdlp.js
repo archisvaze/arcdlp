@@ -567,7 +567,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
                 _log(`Playlist timed out after fetching ${items.length} items`);
                 resolve({ items });
             } else {
-                reject(new Error('Playlist fetch timed out after 3 minutes'));
+                reject(new Error('Playlist fetch timed out after 15 minutes'));
             }
         }, 900000);
 
