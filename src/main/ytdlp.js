@@ -569,7 +569,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
             } else {
                 reject(new Error('Playlist fetch timed out after 3 minutes'));
             }
-        }, 180000);
+        }, 900000);
 
         proc.stdout.on('data', (d) => {
             buffer += d.toString();
