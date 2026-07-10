@@ -554,7 +554,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
         let buffer = '';
         let killed = false;
 
-        // Process timeout - 3 minutes for large playlists
+        // Process timeout - 15 minutes for large playlists
         const timer = setTimeout(() => {
             killed = true;
             try {
