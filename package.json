@@ -1,6 +1,6 @@
 {
     "name": "arcdlp",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "description": "Video downloader powered by yt-dlp",
     "main": "src/main/main.js",
     "author": "Archis",
@@ -58,7 +58,10 @@
                 "zip"
             ],
             "hardenedRuntime": true,
-            "gatekeeperAssess": false
+            "gatekeeperAssess": false,
+            "entitlements": "build/entitlements.mac.plist",
+            "entitlementsInherit": "build/entitlements.mac.plist",
+            "notarize": true
         },
         "win": {
             "icon": "build/icon.ico",
