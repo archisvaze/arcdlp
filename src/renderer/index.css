@@ -915,6 +915,28 @@ body {
     margin-top: -2px;
 }
 
+.settings-proxy-input {
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.settings-proxy-input::placeholder {
+    color: var(--text-3);
+}
+
+.settings-proxy-input:focus {
+    border-color: var(--accent);
+}
+
 .auth-signed-in {
     color: var(--success);
 }

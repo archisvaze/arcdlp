@@ -1235,6 +1235,16 @@ async function doChooseFolder() {
     }
 }
 
+async function doSaveProxy() {
+    try {
+        const url = $('proxyInput').value.trim();
+        await window.api.setProxy(url);
+        addLog(url ? 'Proxy set: ' + url : 'Proxy cleared', 'success');
+    } catch (e) {
+        addLog('Failed to save proxy: ' + e.message, 'error');
+    }
+}
+
 function openExternal(url) {
     window.api.openExternal(url);
 }
@@ -1401,6 +1411,11 @@ async function loadSettings() {
     try {
         const dlPath = await window.api.getDownloadPath();
         $('settingsPath').textContent = dlPath || '-';
+    } catch {}
+
+    try {
+        const proxy = await window.api.getProxy();
+        $('proxyInput').value = proxy || '';
     } catch {}
 
     try {

@@ -7,6 +7,20 @@ const fs = require('fs');
 const { log, logError } = require('./utils');
 const cookies = require('./cookies');
 
+// Proxy support
+let _proxyUrl = '';
+
+function setProxyUrl(url) {
+    _proxyUrl = (url || '').trim();
+    if (_proxyUrl) log('Proxy set:', _proxyUrl);
+}
+
+function appendProxyArgs(args) {
+    if (_proxyUrl) {
+        args.push('--proxy', _proxyUrl);
+    }
+}
+
 // Append --cookies flag if user is signed in.
 // Use Instagram cookies for Instagram URLs, YouTube cookies otherwise.
 async function appendCookieArgs(args, url) {
@@ -217,6 +231,7 @@ async function fetchInfo(url, { onLog } = {}) {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
     }
     await appendCookieArgs(args, url);
+    appendProxyArgs(args);
     args.push(url);
 
     return new Promise((resolve, reject) => {
@@ -460,6 +475,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat },
     }
 
     await appendCookieArgs(args, url);
+    appendProxyArgs(args);
     args.push(url);
     log('Download args:', args.join(' '));
 
@@ -545,6 +561,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
     }
     await appendCookieArgs(args, url);
+    appendProxyArgs(args);
     args.push(url);
 
     return new Promise((resolve, reject) => {
@@ -697,4 +714,5 @@ module.exports = {
     looksLikePlaylist,
     buildPresets,
     download,
+    setProxyUrl,
 };

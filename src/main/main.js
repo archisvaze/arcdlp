@@ -28,6 +28,7 @@ const store = new Store({
     name: 'app-config',
     defaults: {
         downloadPath: path.join(app.getPath('downloads'), APP_NAME),
+        proxyUrl: '',
         history: [],
     },
 });
@@ -128,6 +129,7 @@ app.whenReady().then(() => {
         },
     });
     queue.setDownloadPath(store.get('downloadPath'));
+    ytdlp.setProxyUrl(store.get('proxyUrl'));
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -232,6 +234,16 @@ ipcMain.handle('settings:chooseDownloadPath', async () => {
 
 ipcMain.handle('settings:openFolder', (_e, p) => {
     shell.openPath(p || store.get('downloadPath'));
+});
+
+ipcMain.handle('settings:getProxy', () => store.get('proxyUrl') || '');
+
+ipcMain.handle('settings:setProxy', (_e, url) => {
+    const cleaned = (url || '').trim();
+    store.set('proxyUrl', cleaned);
+    ytdlp.setProxyUrl(cleaned);
+    log('Proxy URL changed:', cleaned || '(none)');
+    return cleaned;
 });
 
 ipcMain.handle('settings:openExternal', (_e, url) => {
