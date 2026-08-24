@@ -79,6 +79,9 @@ Settings > Apps.
   quality (4K/2K/1080p/720p/480p/360p/240p), and download as MP4 or extract
   audio as MP3. Fetch multiple URLs back-to-back without waiting - each result
   appears in a side panel for quick review and queueing
+- **Video codec selection** - Choose Auto, H.264, VP9, or AV1 in Settings.
+  Applied as a preference rather than a hard filter, so a video that doesn't
+  offer the chosen codec still downloads using the best available one
 - **Playlist support** - Paste a playlist URL, select which items to download,
   pick a format, and queue them all at once
 - **Instagram saved collections** - Paste a saved collection URL, the app scrapes
@@ -117,6 +120,21 @@ the whole batch before queueing.
 To access private or age-restricted YouTube videos, sign in via **Settings >
 YouTube Account**. Your credentials go directly to Google through their standard
 login page.
+
+### Video Codec
+
+**Settings > Video** controls which video codec is preferred for downloads:
+
+- **Auto** (default) - Whatever yt-dlp ranks highest for the requested quality
+- **H.264** - The most compatible option. Plays in QuickTime, Windows Media
+  Player, and every video editor. YouTube only serves H.264 up to 1080p, so 4K
+  and 2K downloads fall back to another codec
+- **VP9** - Smaller files than H.264 at the same quality. Saved as WebM
+- **AV1** - The smallest files, but needs a reasonably modern player or editor
+
+This is a preference, not a hard requirement. If a site doesn't offer the chosen
+codec, the download still runs with the best available format and the log says
+which qualities were affected. H.264 and AV1 are saved as MP4, VP9 as WebM.
 
 ### Instagram Saved Collections
 

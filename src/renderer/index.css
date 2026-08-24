@@ -868,6 +868,22 @@ body {
     margin-left: 12px;
 }
 
+.settings-select {
+    padding: 6px 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+}
+
+.settings-select:focus {
+    border-color: var(--accent);
+}
+
 .settings-placeholder {
     text-align: center;
     padding: 40px 20px;

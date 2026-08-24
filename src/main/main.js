@@ -28,6 +28,7 @@ const store = new Store({
     name: 'app-config',
     defaults: {
         downloadPath: path.join(app.getPath('downloads'), APP_NAME),
+        videoCodec: 'auto',
         history: [],
     },
 });
@@ -128,6 +129,7 @@ app.whenReady().then(() => {
         },
     });
     queue.setDownloadPath(store.get('downloadPath'));
+    queue.setVideoCodec(store.get('videoCodec') || 'auto');
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -198,9 +200,20 @@ ipcMain.handle('video:fetch', async (_e, url) => {
         const { info, raw } = await ytdlp.fetchInfo(url, {
             onLog: (msg) => send('log', msg),
         });
-        const presets = ytdlp.buildPresets(info.formats);
+        const videoCodec = store.get('videoCodec') || 'auto';
+        const presets = ytdlp.buildPresets(info.formats, videoCodec);
         send('log', `Found: ${info.title}`);
         log('Presets:', presets.map((p) => p.label).join(', '));
+
+        // Warn about qualities the chosen codec can't cover. YouTube tops H.264
+        // out at 1080p, so a 4K pick will quietly come down to VP9 or AV1.
+        if (videoCodec !== 'auto') {
+            const missing = presets.filter((p) => p.type === 'video' && p.codecFallback).map((p) => p.label);
+            if (missing.length > 0) {
+                const label = ytdlp.VIDEO_CODEC_LABELS[videoCodec] || videoCodec;
+                send('log', `${label} not available at: ${missing.join(', ')}. Best available codec will be used instead.`);
+            }
+        }
 
         addToHistory(info, presets);
 
@@ -228,6 +241,17 @@ ipcMain.handle('settings:chooseDownloadPath', async () => {
         return result.filePaths[0];
     }
     return store.get('downloadPath');
+});
+
+ipcMain.handle('settings:getVideoCodec', () => store.get('videoCodec') || 'auto');
+
+ipcMain.handle('settings:setVideoCodec', (_e, codec) => {
+    const allowed = ['auto', 'h264', 'vp9', 'av1'];
+    const next = allowed.includes(codec) ? codec : 'auto';
+    store.set('videoCodec', next);
+    queue.setVideoCodec(next);
+    log('Video codec preference:', next);
+    return next;
 });
 
 ipcMain.handle('settings:openFolder', (_e, p) => {

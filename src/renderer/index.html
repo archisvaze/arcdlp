@@ -245,6 +245,32 @@
                 </div>
 
                 <div class="settings-section">
+                    <div class="settings-section-title">Video</div>
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <div class="settings-row-label">Video codec</div>
+                            <div id="videoCodecNote" class="settings-row-value">
+                                Best available quality
+                            </div>
+                        </div>
+                        <div class="settings-row-action">
+                            <select id="videoCodecSelect" class="settings-select"
+                                onchange="doChangeVideoCodec(this.value)">
+                                <option value="auto">Auto</option>
+                                <option value="h264">H.264 (avc1)</option>
+                                <option value="vp9">VP9</option>
+                                <option value="av1">AV1 (av01)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-hint">
+                        If a video doesn't offer the chosen codec, the best available one
+                        is used instead. H.264 plays everywhere but tops out at 1080p on YouTube. AV1 and VP9 give
+                        smaller files at the same quality. VP9 downloads are saved as WebM, the rest as MP4.
+                    </div>
+                </div>
+
+                <div class="settings-section">
                     <div class="settings-section-title">YouTube Account</div>
                     <div class="settings-row">
                         <div class="settings-row-info">
