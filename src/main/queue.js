@@ -21,6 +21,7 @@ class DownloadQueue {
         this._currentProc = null; // ref to kill on cancel
         this._idCounter = 0;
         this._downloadPath = null;
+        this._videoCodec = 'auto';
     }
 
     // Register callbacks (call once from main.js)
@@ -33,7 +34,13 @@ class DownloadQueue {
         this._downloadPath = p;
     }
 
-    // Add one or more items to the queue. Each item: { url, title, formatId extractAudio, audioFormat, thumbnail }
+    // Set the preferred video codec (call from main.js).
+    // Items snapshot this when added, so changing it mid-queue only affects new items.
+    setVideoCodec(c) {
+        this._videoCodec = c || 'auto';
+    }
+
+    // Add one or more items to the queue. Each item: { url, title, formatId extractAudio, audioFormat, thumbnail, videoCodec }
     add(items) {
         const added = [];
         for (const item of items) {
@@ -45,6 +52,7 @@ class DownloadQueue {
                 formatId: item.formatId,
                 extractAudio: item.extractAudio || false,
                 audioFormat: item.audioFormat || 'mp3',
+                videoCodec: item.videoCodec || this._videoCodec || 'auto',
                 state: STATE.PENDING,
                 error: null,
                 progress: null, // { percent, speed, eta }
@@ -266,6 +274,7 @@ class DownloadQueue {
                 outputDir: downloadPath,
                 extractAudio: item.extractAudio,
                 audioFormat: item.audioFormat,
+                videoCodec: item.videoCodec,
             },
             callbacks,
         );

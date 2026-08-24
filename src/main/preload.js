@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('api', {
 
     getDownloadPath: () => ipcRenderer.invoke('settings:getDownloadPath'),
     chooseDownloadPath: () => ipcRenderer.invoke('settings:chooseDownloadPath'),
+    getVideoCodec: () => ipcRenderer.invoke('settings:getVideoCodec'),
+    setVideoCodec: (codec) => ipcRenderer.invoke('settings:setVideoCodec', codec),
     openFolder: (p) => ipcRenderer.invoke('settings:openFolder', p),
     openExternal: (url) => ipcRenderer.invoke('settings:openExternal', url),
 

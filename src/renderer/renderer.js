@@ -1404,6 +1404,13 @@ async function loadSettings() {
     } catch {}
 
     try {
+        const codec = await window.api.getVideoCodec();
+        const sel = $('videoCodecSelect');
+        if (sel) sel.value = codec || 'auto';
+        updateVideoCodecNote(codec || 'auto');
+    } catch {}
+
+    try {
         const deps = await window.api.checkDeps();
 
         const ytdlpEl = $('depYtdlpPath');
@@ -1438,6 +1445,37 @@ async function loadSettings() {
         isInstaSignedIn = await window.api.checkInstaAuth();
         updateInstaAuthUI();
     } catch {}
+}
+
+const VIDEO_CODEC_NOTES = {
+    auto: 'Best available quality',
+    h264: 'Most compatible · MP4 · up to 1080p on YouTube',
+    vp9: 'Smaller files · saved as WebM',
+    av1: 'Smallest files · needs a modern player',
+};
+
+function updateVideoCodecNote(codec) {
+    const note = $('videoCodecNote');
+    if (note) note.textContent = VIDEO_CODEC_NOTES[codec] || VIDEO_CODEC_NOTES.auto;
+}
+
+async function doChangeVideoCodec(value) {
+    const sel = $('videoCodecSelect');
+    try {
+        const saved = await window.api.setVideoCodec(value);
+        if (sel) sel.value = saved;
+        updateVideoCodecNote(saved);
+        addLog(`Video codec set to ${sel ? sel.options[sel.selectedIndex].textContent.trim() : saved}`);
+        showToast('Codec preference saved');
+    } catch (err) {
+        addLog('Failed to save codec: ' + (err.message || 'Unknown'), 'error');
+        showToast('Could not save codec', 'error');
+        try {
+            const current = await window.api.getVideoCodec();
+            if (sel) sel.value = current || 'auto';
+            updateVideoCodecNote(current || 'auto');
+        } catch {}
+    }
 }
 
 async function doResetApp() {

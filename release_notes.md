@@ -1,16 +1,27 @@
-## ArcDLP v1.4.1
+## ArcDLP v1.4.2
 
-## What's New in v1.4.1
+## What's New in v1.4.2
 
-### 🎉 macOS app is now signed and notarized
+### 🎬 Choose your video codec
 
-ArcDLP is now officially signed and notarized by Apple.
+Downloads no longer have to take whatever codec the site ranks highest. A new
+**Settings > Video** option lets you pick one:
 
-This means:
+- **Auto** (default) - Unchanged behaviour, whatever yt-dlp ranks best
+- **H.264** - The most compatible option. Opens in QuickTime, Windows Media
+  Player, Premiere, and Resolve without converting first
+- **VP9** - Smaller files at the same quality, saved as WebM
+- **AV1** - The smallest files, for modern players and editors
 
-- No more **"App cannot be verified"** warning
-- No more **Open Anyway** steps in System Settings
-- Simply download, drag ArcDLP to your Applications folder, and open it like any other Mac app
+It is a preference, not a hard filter. If a video doesn't offer the codec you
+picked, the download still runs using the best available format. Check this in logs.
+
+### Other changes
+
+- Size estimates on the quality presets now account for the selected codec, so
+  AV1 and VP9 no longer show H.264-sized numbers
+- VP9 downloads are saved as WebM with Opus audio rather than being forced into
+  an MP4 container, which some players will not play.
 - Package and dependency updates
 
 ### Platform Support
@@ -23,6 +34,6 @@ This means:
 
 ### Download
 
-- macOS: `ArcDLP-1.4.1-arm64.dmg`
-- Windows: `ArcDLP-Setup-1.4.1.exe`
-- Linux: `ArcDLP-1.4.1.AppImage`
+- macOS: `ArcDLP-1.4.2-arm64.dmg`
+- Windows: `ArcDLP-Setup-1.4.2.exe`
+- Linux: `ArcDLP-1.4.2.AppImage`

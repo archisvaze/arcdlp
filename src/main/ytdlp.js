@@ -7,6 +7,42 @@ const fs = require('fs');
 const { log, logError } = require('./utils');
 const cookies = require('./cookies');
 
+// Video codec preference.
+// 'auto' keeps yt-dlp's own ranking. The rest are expressed through --format-sort
+// rather than a hard [vcodec^=...] filter, so a download never fails when the
+// requested codec is missing - it just falls back to the next best format.
+const VIDEO_CODEC_SORT = {
+    h264: 'vcodec:h264',
+    vp9: 'vcodec:vp9,acodec:opus',
+    av1: 'vcodec:av01',
+};
+
+// The container each codec muxes into most reliably.
+// VP9 goes to WebM with Opus audio.
+const VIDEO_CODEC_CONTAINER = {
+    h264: 'mp4',
+    vp9: 'webm',
+    av1: 'mp4',
+};
+
+const VIDEO_CODEC_LABELS = {
+    auto: 'Auto',
+    h264: 'H.264',
+    vp9: 'VP9',
+    av1: 'AV1',
+};
+
+// Does a yt-dlp vcodec string belong to the requested codec family?
+function matchesVideoCodec(vcodec, codec) {
+    if (!codec || codec === 'auto') return true;
+    if (!vcodec || vcodec === 'none') return false;
+    const v = String(vcodec).toLowerCase();
+    if (codec === 'h264') return v.startsWith('avc') || v.startsWith('h264') || v.startsWith('h.264');
+    if (codec === 'vp9') return v.startsWith('vp9') || v.startsWith('vp09');
+    if (codec === 'av1') return v.startsWith('av01') || v.startsWith('av1');
+    return true;
+}
+
 // Append --cookies flag if user is signed in.
 // Use Instagram cookies for Instagram URLs, YouTube cookies otherwise.
 async function appendCookieArgs(args, url) {
@@ -326,7 +362,7 @@ function cleanInfo(raw) {
     };
 }
 
-function buildPresets(formats) {
+function buildPresets(formats, videoCodec = 'auto') {
     // Collect every unique height yt-dlp reports
     // Any format with a height is video, regardless of codec reporting.
     // Some sites report vcodec/acodec as 'none' for muxed streams.
@@ -342,9 +378,24 @@ function buildPresets(formats) {
     const tags = { 2160: '4K', 1440: '2K', 1080: 'Full HD', 720: 'HD' };
 
     function estimateSize(h) {
-        const matching = formats.filter((f) => f.height === h && f.filesize);
-        if (matching.length === 0) return null;
-        return Math.max(...matching.map((f) => f.filesize));
+        const atHeight = formats.filter((f) => f.height === h && f.filesize);
+        if (atHeight.length === 0) return null;
+        // Prefer sizes from the requested codec - AV1 and VP9 are meaningfully
+        // smaller than H.264 at the same height, so a mixed max reads high.
+        // If nothing matches, fall back to any format so a size still shows.
+        const matching = atHeight.filter((f) => matchesVideoCodec(f.vcodec, videoCodec));
+        const pool = matching.length > 0 ? matching : atHeight;
+        return Math.max(...pool.map((f) => f.filesize));
+    }
+
+    // Some sites report vcodec as 'none' on every stream. A codec preference is
+    // meaningless there, so don't flag anything as a fallback.
+    const codecInfoAvailable = formats.some((f) => f.vcodec && f.vcodec !== 'none');
+
+    // Is the requested codec actually offered at this height?
+    function hasCodecAtHeight(h) {
+        if (!videoCodec || videoCodec === 'auto' || !codecInfoAvailable) return true;
+        return formats.some((f) => f.height === h && matchesVideoCodec(f.vcodec, videoCodec));
     }
 
     function formatBytes(bytes) {
@@ -365,6 +416,7 @@ function buildPresets(formats) {
             size: null,
             formatId: 'bv*+ba/b',
             type: 'video',
+            codecFallback: videoCodec !== 'auto' && codecInfoAvailable && !formats.some((f) => matchesVideoCodec(f.vcodec, videoCodec)),
         });
     }
 
@@ -377,6 +429,7 @@ function buildPresets(formats) {
             size: formatBytes(estimateSize(h)),
             formatId: `bv*[height<=${h}]+ba/b[height<=${h}]/b`,
             type: 'video',
+            codecFallback: !hasCodecAtHeight(h),
         });
     }
 
@@ -423,7 +476,7 @@ function buildPresets(formats) {
     return presets;
 }
 
-async function download({ url, formatId, outputDir, extractAudio, audioFormat }, callbacks) {
+async function download({ url, formatId, outputDir, extractAudio, audioFormat, videoCodec }, callbacks) {
     const { onProgress, onLog } = callbacks;
 
     const ytdlp = getYtdlpPath();
@@ -452,11 +505,29 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat },
     if (extractAudio) {
         args.push('-x', '--audio-format', audioFormat || 'mp3', '--audio-quality', '0');
     } else if (formatId) {
-        args.push('-f', formatId, '--merge-output-format', 'mp4');
-        // Re-encode audio to AAC for universal playback.
-        // YouTube serves Opus audio which Windows Media Player can't decode in MP4.
-        // AAC is fast to encode and works on every player on every OS.
-        args.push('--postprocessor-args', 'ffmpeg:-c:v copy -c:a aac');
+        const codec = videoCodec && VIDEO_CODEC_SORT[videoCodec] ? videoCodec : null;
+        const container = codec ? VIDEO_CODEC_CONTAINER[codec] : 'mp4';
+
+        args.push('-f', formatId);
+
+        if (codec) {
+            // Preference, not a filter. If the codec isn't offered, yt-dlp keeps
+            // going with the next best format instead of failing the download.
+            args.push('-S', VIDEO_CODEC_SORT[codec]);
+            log('Codec preference:', codec, '->', VIDEO_CODEC_SORT[codec]);
+            onLog(`Preferring ${VIDEO_CODEC_LABELS[codec]} video`);
+        }
+
+        args.push('--merge-output-format', container);
+
+        if (container === 'mp4') {
+            // Re-encode audio to AAC for universal playback.
+            // YouTube serves Opus audio which Windows Media Player can't decode in MP4.
+            // AAC is fast to encode and works on every player on every OS.
+            args.push('--postprocessor-args', 'ffmpeg:-c:v copy -c:a aac');
+        }
+        // WebM takes yt-dlp's default straight copy merge. AAC is not valid in
+        // WebM, and the format sort above already biases audio to Opus.
     }
 
     await appendCookieArgs(args, url);
@@ -690,6 +761,7 @@ function looksLikePlaylist(url) {
 }
 
 module.exports = {
+    VIDEO_CODEC_LABELS,
     checkDeps,
     getVersions,
     fetchInfo,
