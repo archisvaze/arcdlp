@@ -1,5 +1,3 @@
-## ArcDLP v1.4.3
-
 ## What's New in v1.4.3
 
 ### 🎬 Choose your video codec
@@ -27,7 +25,7 @@ picked, the download still runs using the best available format. Check this in l
 
 ### Platform Support
 
-- macOS (.dmg)
+- macOS (M1-M6) (.dmg)
 - Windows (.exe)
 - Linux (.AppImage)
 
