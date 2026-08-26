@@ -11,7 +11,7 @@ const updater = require('./updater');
 const scraper = require('./scraper');
 const { DEV_MODE, log, logError } = require('./utils');
 const fs = require('fs');
-
+// test
 const APP_NAME = 'ArcDLP';
 
 process.on('uncaughtException', (err) => {

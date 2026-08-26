@@ -547,6 +547,22 @@ function doClear() {
     $url.focus();
 }
 
+function doPaste() {
+    navigator.clipboard.readText().then((text) => {
+        const url = text.trim();
+        if (!url) return;
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            showError('Please enter a valid URL starting with http:// or https://');
+            return;
+        }
+        hideError();
+        $url.value = url;
+        $url.focus();
+    }).catch((err) => {
+        showError('Failed to read clipboard: ' + err.message);
+    });
+}
+
 function showClearBtn() {
     $clearBtn.style.display = '';
 }
