@@ -1,6 +1,6 @@
-## ArcDLP v1.4.2
+## ArcDLP v1.4.3
 
-## What's New in v1.4.2
+## What's New in v1.4.3
 
 ### 🎬 Choose your video codec
 
@@ -18,6 +18,7 @@ picked, the download still runs using the best available format. Check this in l
 
 ### Other changes
 
+- Added a paste button for mouse/trackpad users
 - Size estimates on the quality presets now account for the selected codec, so
   AV1 and VP9 no longer show H.264-sized numbers
 - VP9 downloads are saved as WebM with Opus audio rather than being forced into
@@ -34,6 +35,6 @@ picked, the download still runs using the best available format. Check this in l
 
 ### Download
 
-- macOS: `ArcDLP-1.4.2-arm64.dmg`
-- Windows: `ArcDLP-Setup-1.4.2.exe`
-- Linux: `ArcDLP-1.4.2.AppImage`
+- macOS: `ArcDLP-1.4.3-arm64.dmg`
+- Windows: `ArcDLP-Setup-1.4.3.exe`
+- Linux: `ArcDLP-1.4.3.AppImage`
