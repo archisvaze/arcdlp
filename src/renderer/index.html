@@ -46,9 +46,10 @@
                     <button id="clearBtn" class="btn btn-clear" onclick="doClear()" style="display: none">
                         Clear
                     </button>
-                    <button id="pasteBtn" class="btn btn-primary" onclick="doPaste()">
+                    <button id="pasteBtn" class="btn btn-default" onclick="doPaste()">
                         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 32 32" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="opacity: 0.75;">
                             <path d="M20 6h2a4 4 0 0 1 4 4v7" />
                             <path d="M12 6h-2a4 4 0 0 0-4 4v14a4 4 0 0 0 4 4h5" />
                             <path d="M20 6h-8V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2Z" />
@@ -148,9 +149,10 @@
 
                         <div id="emptyState" class="empty-state">
                             <div class="icon">⬇</div>
-                            <div class="title">Paste a video or playlist URL</div>
+                            <div class="title">Copy and Paste a video or playlist URL</div>
                             <div class="sub">
-                                Press <kbd>Ctrl</kbd> + <kbd>V</kbd> or <kbd>⌘</kbd> + <kbd>V</kbd>
+                                Press <kbd>Ctrl</kbd> + <kbd>V</kbd> or <kbd>⌘</kbd> + <kbd>V</kbd> or click the paste
+                                button
                             </div>
                             <div class="sub">YouTube, Vimeo, Twitter, Instagram collections, and thousands more</div>
                         </div>
@@ -449,7 +451,7 @@
                         <button onclick="clearLog()">Clear</button>
                         <button onclick="doOpenFolder()">Open folder</button>
                         <button class="log-support-btn"
-                            onclick="openExternal('https://github.com/sponsors/archisvaze')">♥ Support</button>
+                            onclick="openExternal('https://github.com/sponsors/archisvaze')">♥ Support ArcDLP</button>
                     </div>
                 </div>
                 <div id="logBody" class="log-body"></div>

@@ -178,8 +178,16 @@ body {
 
 /* Buttons */
 
+button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: fit-content;
+    min-height: fit-content;
+}
+
 .btn {
-    padding: 10px 20px;
+    padding: 8px 16px;
     border: none;
     border-radius: var(--radius);
     font-size: 14px;
@@ -192,7 +200,7 @@ body {
     justify-content: center;
     gap: 6px;
     user-select: none;
-    min-width: 80px;
+    min-width: fit-content;
 }
 
 .btn:active {
@@ -214,14 +222,20 @@ body {
     background: var(--accent-hover);
 }
 
-.btn-clear {
+.btn-clear,
+.btn-default {
     background: transparent;
     color: var(--text-2);
     border: 1px solid var(--input-border);
 }
 
+.btn-default:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
 .btn-clear:hover:not(:disabled) {
-    background: var(--danger-soft);
+    background: var(--accent-soft);
     color: var(--danger);
     border-color: rgba(255, 59, 48, 0.2);
 }
@@ -1000,10 +1014,10 @@ body {
     background: none;
     border: none;
     color: #6b7280;
-    font-size: 11px;
+    font-size: 12px;
     font-family: inherit;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 6px 10px;
     border-radius: 4px;
 }
 
@@ -1013,13 +1027,15 @@ body {
 }
 
 .log-support-btn {
-    color: #e8789a !important;
-    opacity: 0.7;
+    color: white !important;
+    opacity: 0.9;
+    background: rgb(255, 79, 79) !important;
 }
 
 .log-support-btn:hover {
     opacity: 1;
-    color: #f0a0b8 !important;
+    color: white !important;
+    background: rgb(178, 44, 44) !important;
 }
 
 .log-body {
