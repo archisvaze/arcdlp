@@ -49,7 +49,6 @@ contextBridge.exposeInMainWorld('api', {
     queueCancelAll: () => ipcRenderer.invoke('queue:cancelAll'),
     queueRetry: (itemId) => ipcRenderer.invoke('queue:retry', itemId),
     queueRetryFailed: () => ipcRenderer.invoke('queue:retryFailed'),
-    queueClearCompleted: () => ipcRenderer.invoke('queue:clearCompleted'),
     queueRemove: (itemId) => ipcRenderer.invoke('queue:remove', itemId),
 
     onLog: (cb) => {

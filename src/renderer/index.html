@@ -89,6 +89,26 @@
                             <div class="section-label">Extract audio</div>
                             <div id="audioFormats" class="format-list"></div>
 
+                            <hr class="sep" />
+
+                            <div id="chapterOptions" class="chapter-options" style="display: none">
+                                <div class="section-label">Options</div>
+                                <div class="options-row">
+                                    <label class="options-item">
+                                        <input type="checkbox" id="optEmbedChapters" />
+                                        <span class="options-check"></span>
+                                        <span class="options-label">Embed chapters</span>
+                                    </label>
+                                    <label class="options-item">
+                                        <input type="checkbox" id="optSplitChapters" />
+                                        <span class="options-check"></span>
+                                        <span class="options-label">Split into chapter files</span>
+                                    </label>
+                                </div>
+                                <div class="options-hint">Requires a video with chapters. Split saves each chapter as
+                                    its own file. Applies to video and audio saves.</div>
+                            </div>
+
                             <button id="dlBtn" class="btn-download" onclick="doDownload()">
                                 Add to Queue
                             </button>
@@ -136,11 +156,30 @@
                                         <option value="ba/b" data-audio="true" data-format="opus">
                                             OPUS (audio only)
                                         </option>
+                                        <option value="ba/b" data-audio="true" data-format="vorbis">
+                                            OGG (audio only)
+                                        </option>
+                                        <option value="ba/b" data-audio="true" data-format="wav">
+                                            WAV (audio only)
+                                        </option>
                                     </select>
                                 </div>
-                                <div class="pl-format-note">If a video doesn't have the selected quality, the best
-                                    available
-                                    will be used.</div>
+                                <div id="plChapterOptions" class="chapter-options" style="display: none">
+                                    <div class="options-row">
+                                        <label class="options-item">
+                                            <input type="checkbox" id="plOptEmbedChapters" />
+                                            <span class="options-check"></span>
+                                            <span class="options-label">Embed chapters</span>
+                                        </label>
+                                        <label class="options-item">
+                                            <input type="checkbox" id="plOptSplitChapters" />
+                                            <span class="options-check"></span>
+                                            <span class="options-label">Split into chapter files</span>
+                                        </label>
+                                    </div>
+                                    <div class="options-hint">Applies to each selected item. Split saves every
+                                        chapter as its own file. Works for video and audio.</div>
+                                </div>
                                 <button id="plDownloadBtn" class="btn-download" onclick="doPlaylistDownload()">
                                     Add Selected to Queue
                                 </button>
@@ -180,9 +219,6 @@
                         </button>
                         <button id="qRetryFailedBtn" class="btn-sm" onclick="doRetryFailed()" style="display: none">
                             Retry failed
-                        </button>
-                        <button id="qClearDoneBtn" class="btn-sm" onclick="doClearCompleted()" style="display: none">
-                            Clear done
                         </button>
                         <button id="qCancelAllBtn" class="btn-sm btn-sm-danger" onclick="doCancelAll()"
                             style="display: none">

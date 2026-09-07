@@ -20,6 +20,8 @@ class DownloadQueue {
         this._callbacks = null; // onProgress, onLog, onItemUpdate, onQueueUpdate
         this._currentProc = null; // ref to kill on cancel
         this._idCounter = 0;
+        this._completedRun = 0; // completed/failed since processing started
+        this._failedRun = 0;
         this._downloadPath = null;
         this._videoCodec = 'auto';
     }
@@ -52,7 +54,10 @@ class DownloadQueue {
                 formatId: item.formatId,
                 extractAudio: item.extractAudio || false,
                 audioFormat: item.audioFormat || 'mp3',
+                embedChapters: item.embedChapters || false,
+                splitChapters: item.splitChapters || false,
                 videoCodec: item.videoCodec || this._videoCodec || 'auto',
+                duration: item.duration || null,
                 state: STATE.PENDING,
                 error: null,
                 progress: null, // { percent, speed, eta }
@@ -140,13 +145,6 @@ class DownloadQueue {
         }
     }
 
-    clearCompleted() {
-        this._items = this._items.filter((i) => i.state === STATE.PENDING || i.state === STATE.DOWNLOADING);
-        // Reset id counter if queue is empty
-        if (this._items.length === 0) this._idCounter = 0;
-        this._emitQueueUpdate();
-    }
-
     remove(itemId) {
         const item = this._items.find((i) => i.id === itemId);
         if (!item) return;
@@ -199,29 +197,40 @@ class DownloadQueue {
             log('Queue: all done');
             this._emit('log', 'Queue complete');
             this._emitQueueUpdate();
+            this._completedRun = 0;
+            this._failedRun = 0;
             return;
         }
 
         this._isProcessing = true;
         nextItem.state = STATE.DOWNLOADING;
-        nextItem.progress = { percent: '0%', speed: '', eta: '' };
+        nextItem.progress = { percent: '0%', speed: '', eta: '', phase: 'download', ppStep: '' };
         this._emitItemUpdate(nextItem);
         this._emitQueueUpdate();
 
+        // Completed items leave the queue and failed items stay put, so the list
+        // alone is not a reliable total. Derive the batch size from the run
+        // counters plus whatever is still pending/downloading.
         const counts = this.counts;
-        const position = counts.completed + counts.failed + 1;
-        const total = counts.total;
+        const total = this._completedRun + this._failedRun + counts.pending + counts.downloading;
+        const position = this._completedRun + this._failedRun + 1;
         this._emit('log', `Downloading ${position}/${total}: ${nextItem.title}`);
 
         try {
             this._cancelled = false;
             await this._downloadOne(nextItem);
             nextItem.state = STATE.COMPLETED;
-            nextItem.progress = { percent: '100%', speed: '', eta: '' };
+            nextItem.progress = { percent: '100%', speed: '', eta: '', phase: 'done', ppStep: '' };
+            this._completedRun++;
             this._emit('log', `Completed: ${nextItem.title} ✓`);
             log('Queue: completed', nextItem.title);
             this._emitItemComplete(nextItem);
+
+            // Completed downloads leave the queue right away; history keeps
+            // them instead, so the list only shows what is still to do.
+            this._items = this._items.filter((i) => i.id !== nextItem.id);
         } catch (err) {
+            this._failedRun++;
             if (this._cancelled) {
                 nextItem.state = STATE.FAILED;
                 nextItem.error = 'Cancelled';
@@ -237,7 +246,9 @@ class DownloadQueue {
         }
 
         this._currentProc = null;
-        this._emitItemUpdate(nextItem);
+        if (this._items.includes(nextItem)) {
+            this._emitItemUpdate(nextItem);
+        }
         this._emitQueueUpdate();
 
         // Continue to next, always, even after failure
@@ -265,6 +276,9 @@ class DownloadQueue {
             onLog: (msg) => {
                 this._emit('log', msg);
             },
+            onSpawn: (proc) => {
+                this._currentProc = proc;
+            },
         };
 
         const downloadPromise = ytdlp.download(
@@ -275,20 +289,14 @@ class DownloadQueue {
                 extractAudio: item.extractAudio,
                 audioFormat: item.audioFormat,
                 videoCodec: item.videoCodec,
+                embedChapters: item.embedChapters,
+                splitChapters: item.splitChapters,
+                duration: item.duration,
             },
             callbacks,
         );
 
-        this._currentProc = callbacks._proc;
-
-        const pollInterval = setInterval(() => {
-            if (callbacks._proc) {
-                this._currentProc = callbacks._proc;
-                clearInterval(pollInterval);
-            }
-        }, 50);
-
-        return downloadPromise.finally(() => clearInterval(pollInterval));
+        return downloadPromise;
     }
 
     _emit(type, data) {
@@ -316,6 +324,8 @@ class DownloadQueue {
                 items: this.getAll(),
                 counts: this.counts,
                 isActive: this.isActive,
+                completedRun: this._completedRun,
+                failedRun: this._failedRun,
             });
         }
     }

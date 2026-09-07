@@ -20,6 +20,10 @@
 .DS_Store
 *.pem
 
+# stray media downloads from dev testing (yt-dlp outputs at repo root)
+/*.ogg
+/*.m4a
+
 # debug
 npm-debug.log*
 yarn-debug.log*
