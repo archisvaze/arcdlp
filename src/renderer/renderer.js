@@ -4,6 +4,9 @@ let selectedPreset = null;
 let isFetching = false;
 let historyCache = [];
 
+// Per-download chapter choices, cleared whenever a new video is shown.
+let selectedChapters = { embed: false, split: false };
+
 // Fetch queue - allows multiple URLs to be fetched without blocking
 let fetchQueue = [];
 let fetchQueueIdCounter = 0;
@@ -13,6 +16,9 @@ let activeFetchId = null;
 let playlistItems = [];
 let playlistSelected = new Set();
 let isPlaylistMode = false;
+
+// Chapter choices for playlist batch downloads.
+let playlistChapters = { embed: false, split: false };
 
 let queueData = {
     items: [],
@@ -46,6 +52,16 @@ const $dlBtn = $('dlBtn');
 const $logBody = $('logBody');
 const $toastContainer = $('toastContainer');
 
+// Chapter options
+const $chapterOptions = $('chapterOptions');
+const $optEmbed = $('optEmbedChapters');
+const $optSplit = $('optSplitChapters');
+
+// Playlist chapter options
+const $plChapterOptions = $('plChapterOptions');
+const $plOptEmbed = $('plOptEmbedChapters');
+const $plOptSplit = $('plOptSplitChapters');
+
 // Fetch panel
 const $fetchPanel = $('fetchPanel');
 const $fetchPanelItems = $('fetchPanelItems');
@@ -71,7 +87,6 @@ const $queueEmpty = $('queueEmpty');
 const $queueStatus = $('queueStatus');
 const $queueCount = $('queueCount');
 const $qRetryFailedBtn = $('qRetryFailedBtn');
-const $qClearDoneBtn = $('qClearDoneBtn');
 const $qCancelAllBtn = $('qCancelAllBtn');
 
 function switchTab(tabId) {
@@ -144,7 +159,7 @@ window.api.onLog((msg) => {
 window.api.onQueueUpdate((data) => {
     const wasActive = wasQueueActive;
     const isNowActive = data.isActive;
-    const hasCompleted = data.counts.completed > 0;
+    const ranJobs = data.completedRun > 0 || data.failedRun > 0;
 
     queueData = data;
     wasQueueActive = isNowActive;
@@ -152,13 +167,14 @@ window.api.onQueueUpdate((data) => {
     renderQueue();
     updateQueueCount();
 
-    // Show toast when queue finishes (was active, now idle, has completed items)
-    if (wasActive && !isNowActive && hasCompleted) {
-        const { completed, failed } = data.counts;
+    // Show toast when queue finishes (was active, now idle, items ran).
+    // Completed items auto-remove now, so the run counters carry the totals.
+    if (wasActive && !isNowActive && ranJobs) {
+        const { completedRun: done, failedRun: failed } = data;
         if (failed > 0) {
-            showToast(`Downloads complete: ${completed} done, ${failed} failed`);
+            showToast(`Downloads complete: ${done} done, ${failed} failed`);
         } else {
-            showToast(`${completed} download${completed !== 1 ? 's' : ''} complete ✓`, 'success');
+            showToast(`${done} download${done !== 1 ? 's' : ''} complete ✓`, 'success');
         }
     }
 });
@@ -391,6 +407,7 @@ function selectFetchItem(id) {
     videoInfo = item.info;
     presets = item.presets;
     selectedPreset = null;
+    selectedChapters = { embed: false, split: false };
     isPlaylistMode = false;
 
     hideError();
@@ -541,6 +558,7 @@ function doClear() {
     videoInfo = null;
     presets = [];
     selectedPreset = null;
+    selectedChapters = { embed: false, split: false };
     activeFetchId = null;
     $clearBtn.style.display = 'none';
     renderFetchPanel();
@@ -712,6 +730,29 @@ function formatNumber(n) {
     return n.toLocaleString();
 }
 
+// Progress text helpers. yt-dlp reports percent like "24.2%", speed like
+// "11.42MiB/s", and ETA "NA" or "00:00" when it cannot tell. Round numbers and
+// drop the meaningless bits so the queue line stays short and tidy.
+function roundValue(s) {
+    const m = String(s || '').match(/^([-+]?[\d.]+)(.*)$/);
+    if (!m) return s;
+    return String(Math.round(parseFloat(m[1]))) + m[2];
+}
+
+function cleanEta(eta) {
+    if (!eta) return '';
+    const t = String(eta).trim();
+    if (!t || /na|unknown/i.test(t) || t === '--:--' || t === '00:00') return '';
+    return t;
+}
+
+function cleanSpeed(speed) {
+    if (!speed) return '';
+    const t = String(speed).trim();
+    if (!t || /na|unknown/i.test(t)) return '';
+    return roundValue(t);
+}
+
 function formatDate(yyyymmdd) {
     if (!yyyymmdd || yyyymmdd.length !== 8) return yyyymmdd || '';
     try {
@@ -751,7 +792,52 @@ function selectFormat(id) {
     $card.querySelectorAll('.format-option').forEach((el) => {
         el.classList.toggle('selected', el.dataset.id === id);
     });
+    updateChapterOptions();
 }
+
+// Show the chapter checkboxes when the video has chapters, for video and audio
+// saves alike. Split implies embed, so the embed box is forced on and locked
+// while split is on.
+function updateChapterOptions() {
+    const hasChapters = Array.isArray(videoInfo?.chapters) && videoInfo.chapters.length > 0;
+    $chapterOptions.style.display = hasChapters ? '' : 'none';
+
+    $optEmbed.checked = selectedChapters.embed || selectedChapters.split;
+    $optEmbed.disabled = selectedChapters.split;
+    $optSplit.checked = selectedChapters.split;
+}
+
+$optEmbed.addEventListener('change', () => {
+    selectedChapters.embed = $optEmbed.checked;
+    updateChapterOptions();
+});
+
+$optSplit.addEventListener('change', () => {
+    selectedChapters.split = $optSplit.checked;
+    updateChapterOptions();
+});
+
+// Playlist chapter toggles. Same behavior as the single video options, and it
+// applies to video and audio saves alike.
+function updatePlChapterOptions() {
+    $plChapterOptions.style.display = '';
+
+    $plOptEmbed.checked = playlistChapters.embed || playlistChapters.split;
+    $plOptEmbed.disabled = playlistChapters.split;
+    $plOptSplit.checked = playlistChapters.split;
+}
+
+$plOptEmbed.addEventListener('change', () => {
+    playlistChapters.embed = $plOptEmbed.checked;
+    updatePlChapterOptions();
+});
+
+$plOptSplit.addEventListener('change', () => {
+    playlistChapters.split = $plOptSplit.checked;
+    updatePlChapterOptions();
+});
+
+$plFormatSelect.addEventListener('change', updatePlChapterOptions);
 
 function hideCard() {
     $card.classList.remove('visible');
@@ -775,6 +861,10 @@ async function doDownload() {
                 formatId: selectedPreset.formatId,
                 extractAudio: isAudio,
                 audioFormat: isAudio ? selectedPreset.audioFormat || 'mp3' : undefined,
+                duration: videoInfo.duration || null,
+                // OGG/vorbis and WAV don't support embedded chapters; only mp3/m4a/opus do.
+                embedChapters: selectedChapters.embed && !(isAudio && ['vorbis', 'wav'].includes(selectedPreset.audioFormat)),
+                splitChapters: selectedChapters.split,
             },
         ]);
 
@@ -828,11 +918,13 @@ function showPlaylist() {
     $empty.style.display = 'none';
     $card.classList.remove('visible');
     $plCard.classList.add('visible');
+    playlistChapters = { embed: false, split: false };
     $('plFooter').style.display = 'none'; // hidden until fetch completes
 }
 
 function showPlaylistFooter() {
     $('plFooter').style.display = '';
+    updatePlChapterOptions();
 }
 
 function hidePlaylist() {
@@ -917,6 +1009,10 @@ async function doPlaylistDownload() {
             formatId: formatId,
             extractAudio: isAudio,
             audioFormat: isAudio ? opt.dataset.format || 'mp3' : undefined,
+            duration: item.duration || null,
+            // OGG/vorbis and WAV don't support embedded chapters; only mp3/m4a/opus do.
+            embedChapters: playlistChapters.embed && !(isAudio && ['vorbis', 'wav'].includes(opt.dataset.format)),
+            splitChapters: playlistChapters.split,
         }));
 
         await window.api.queueAdd(queueItems);
@@ -967,14 +1063,12 @@ function renderQueue() {
         statusParts.push(`${counts.downloading} downloading`);
     }
     if (counts.pending > 0) statusParts.push(`${counts.pending} waiting`);
-    if (counts.completed > 0) statusParts.push(`${counts.completed} done`);
     if (counts.failed > 0) statusParts.push(`${counts.failed} failed`);
     $queueStatus.textContent = statusParts.join(' · ') || '0 items';
 
     // Show/hide action buttons
     $qCancelAllBtn.style.display = isActive ? 'inline-block' : 'none';
     $qRetryFailedBtn.style.display = counts.failed > 0 ? 'inline-block' : 'none';
-    $qClearDoneBtn.style.display = counts.completed > 0 || (counts.failed > 0 && !isActive) ? 'inline-block' : 'none';
 
     // Render items
     $queueItems.innerHTML = items.map((item) => queueItemHTML(item)).join('');
@@ -993,18 +1087,44 @@ function queueItemHTML(item) {
         statusHTML = '<span class="q-item-status waiting">Waiting...</span>';
         actionsHTML = `<button class="q-item-remove" data-id="${item.id}" title="Remove">×</button>`;
     } else if (item.state === 'downloading') {
+        const phase = item.progress?.phase || 'download';
+        const ppStep = item.progress?.ppStep || '';
         const pct = item.progress?.percent || '0%';
-        const speed = item.progress?.speed || '';
-        const eta = item.progress?.eta || '';
         const pctNum = parseFloat(pct) || 0;
-        const detail = [speed, eta ? 'ETA ' + eta : ''].filter(Boolean).join(' · ');
 
-        statusHTML = `<span class="q-item-status downloading">${pct}${detail ? ' · ' + detail : ''}</span>`;
-        progressHTML = `<div class="q-item-progress-track"><div class="q-item-progress-fill" style="width:${pctNum}%"></div></div>`;
+        // yt-dlp prints no progress once the file hits 100%, but the merge
+        // and encode steps are still running. We track ffmpeg's -progress file
+        // in the main process, which gives a real percentage for encode phases.
+        let status;
+        let barClass = '';
+        let barWidth = pctNum;
+        if (phase === 'processing') {
+            const encodePct = item.progress?.encodePct;
+            if (typeof encodePct === 'number' && encodePct >= 0) {
+                status = 'Encoding' + (ppStep ? ' · ' + ppStep : '') + ' · ' + encodePct + '%';
+                barClass = '';
+                barWidth = encodePct;
+            } else {
+                status = 'Encoding' + (ppStep ? ' · ' + ppStep : '');
+                barClass = 'full striped';
+                barWidth = 100;
+            }
+        } else if (phase === 'cleanup') {
+            status = 'Cleaning up...';
+            barClass = 'full striped';
+            barWidth = 100;
+        } else {
+            const details = [Math.round(pctNum) + '%'];
+            const speedTxt = cleanSpeed(item.progress?.speed || '');
+            if (speedTxt) details.push(speedTxt);
+            const etaTxt = cleanEta(item.progress?.eta || '');
+            if (etaTxt) details.push('ETA ' + etaTxt);
+            status = 'Downloading · ' + details.join(' · ');
+        }
+
+        statusHTML = `<span class="q-item-status downloading">${status}</span>`;
+        progressHTML = `<div class="q-item-progress-track"><div class="q-item-progress-fill ${barClass}" style="width:${barWidth}%"></div></div>`;
         actionsHTML = `<button class="q-item-cancel" title="Skip this item">⏭</button>`;
-    } else if (item.state === 'completed') {
-        statusHTML = '<span class="q-item-status completed">Complete ✓</span>';
-        actionsHTML = `<button class="q-item-open-folder" title="Open folder" onclick="doOpenFolder()">📂</button><button class="q-item-remove" data-id="${item.id}" title="Remove">×</button>`;
     } else if (item.state === 'failed') {
         const errText = escapeHtml(item.error || 'Failed');
         statusHTML = `<span class="q-item-status failed" title="${errText}">${errText}</span>`;
@@ -1097,15 +1217,6 @@ async function doRetryFailed() {
         addLog('Retrying failed items...', 'highlight');
     } catch (e) {
         addLog('Retry failed: ' + e.message, 'error');
-    }
-}
-
-async function doClearCompleted() {
-    try {
-        await window.api.queueClearCompleted();
-        addLog('Cleared completed items');
-    } catch (e) {
-        addLog('Clear failed: ' + e.message, 'error');
     }
 }
 
@@ -1357,6 +1468,7 @@ function loadFromHistory(idx) {
     videoInfo = entry.info;
     presets = entry.presets;
     selectedPreset = null;
+    selectedChapters = { embed: false, split: false };
     isPlaylistMode = false;
     activeFetchId = null;
 

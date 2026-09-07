@@ -377,7 +377,7 @@ ipcMain.handle('playlist:detect', (_e, url) => {
 // Queue
 
 ipcMain.handle('queue:add', (_e, items) => {
-    log('Queue: adding', items.length, 'items');
+    log('Queue: adding', items.length, `item${items.length !== 1 ? 's' : ''}`);
     return queue.add(items);
 });
 
@@ -406,11 +406,6 @@ ipcMain.handle('queue:retry', (_e, itemId) => {
 
 ipcMain.handle('queue:retryFailed', () => {
     queue.retryFailed();
-    return { ok: true };
-});
-
-ipcMain.handle('queue:clearCompleted', () => {
-    queue.clearCompleted();
     return { ok: true };
 });
 

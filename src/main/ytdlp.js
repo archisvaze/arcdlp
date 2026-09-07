@@ -4,6 +4,7 @@
 const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { log, logError } = require('./utils');
 const cookies = require('./cookies');
 
@@ -31,6 +32,65 @@ const VIDEO_CODEC_LABELS = {
     vp9: 'VP9',
     av1: 'AV1',
 };
+
+// Post-processor lines tell us what yt-dlp is doing after the download hits
+// 100%. During these stages yt-dlp prints no progress lines at all, so without
+// tracking them the progress bar freezes on the last "100% - ETA NA" line.
+const PP_STEPS = {
+    '[Merger]': 'Merging streams',
+    '[ExtractAudio]': 'Extracting audio',
+    '[VideoConvertor]': 'Converting video',
+    '[VideoRemuxer]': 'Remuxing video',
+    '[EmbedChapters]': 'Embedding chapters',
+    '[SplitChapters]': 'Splitting chapters',
+    '[Metadata]': 'Adding metadata',
+    '[EmbedThumbnail]': 'Embedding thumbnail',
+    '[ThumbnailsConvertor]': 'Converting thumbnail',
+};
+
+// Map a yt-dlp output line to a friendly processing step, or null if it is not
+// a post-processor line.
+function postProcessStep(trimmed) {
+    if (!trimmed || !trimmed.startsWith('[')) return null;
+    for (const [prefix, step] of Object.entries(PP_STEPS)) {
+        if (trimmed.startsWith(prefix)) return step;
+    }
+    if (trimmed.startsWith('[Fixup')) return 'Polishing file';
+    return null;
+}
+
+// Steps where ffmpeg actually re-encodes audio/video, so the -progress file
+// tracks real time. Embedding/splitting chapters are fast remuxes that each
+// restart ffmpeg and would make the percentage jump backwards.
+const ENCODE_STEPS = new Set(['Merging streams', 'Extracting audio', 'Converting video']);
+
+// Extract a full file path from a post-processor destination line. yt-dlp uses
+// either "Destination: <path>" or "Merging formats into \"<path>\"".
+function postProcessPath(trimmed) {
+    let m = trimmed.match(/Destination: "?(.+?)"?\s*$/);
+    if (!m) m = trimmed.match(/Merging formats into "(.+)"\s*$/);
+    return m ? m[1].trim() : null;
+}
+
+// yt-dlp reports speed as "Unknown B/s" and ETA as "NA"/"Unknown" when it
+// cannot tell. Strip those before the value reaches the UI or log, and round
+// the numbers so the progress line stays short.
+function cleanReportedSpeed(s) {
+    if (!s) return '';
+    const t = String(s).trim();
+    if (!t || /unknown|na/i.test(t)) return '';
+    const m = t.match(/^([\d.]+)(.*)$/);
+    if (!m) return t;
+    const n = parseFloat(m[1]);
+    return (Number.isFinite(n) ? String(Math.round(n)) : m[1]) + m[2];
+}
+
+function cleanReportedEta(e) {
+    if (!e) return '';
+    const t = String(e).trim();
+    if (!t || /unknown|na/i.test(t)) return '';
+    return t;
+}
 
 // Does a yt-dlp vcodec string belong to the requested codec family?
 function matchesVideoCodec(vcodec, codec) {
@@ -358,6 +418,7 @@ function cleanInfo(raw) {
         age_limit: raw.age_limit || 0,
         live_status: raw.live_status || 'not_live',
         formats,
+        chapters: raw.chapters || [],
         _fetched_at: Date.now(),
     };
 }
@@ -473,11 +534,32 @@ function buildPresets(formats, videoCodec = 'auto') {
         audioFormat: 'm4a',
     });
 
+    presets.push({
+        id: 'audio-ogg',
+        label: 'OGG',
+        tag: '',
+        size: formatBytes(audioSize((f) => f.acodec?.includes('vorbis') || f.acodec?.includes('opus'))),
+        formatId: 'ba[acodec*=vorbis]/ba[acodec*=opus]/ba/b',
+        type: 'audio',
+        // yt-dlp calls the ogg container format "vorbis"
+        audioFormat: 'vorbis',
+    });
+
+    presets.push({
+        id: 'audio-wav',
+        label: 'WAV',
+        tag: '',
+        size: formatBytes(audioSize(() => true)),
+        formatId: 'ba/b',
+        type: 'audio',
+        audioFormat: 'wav',
+    });
+
     return presets;
 }
 
-async function download({ url, formatId, outputDir, extractAudio, audioFormat, videoCodec }, callbacks) {
-    const { onProgress, onLog } = callbacks;
+async function download({ url, formatId, outputDir, extractAudio, audioFormat, videoCodec, embedChapters, splitChapters, duration }, callbacks) {
+    const { onProgress, onLog, onSpawn } = callbacks;
 
     const ytdlp = getYtdlpPath();
     if (!ytdlp) throw new Error('yt-dlp not found');
@@ -492,7 +574,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
         '--socket-timeout',
         '30',
         '--progress-template',
-        'download:DLPROG %(progress._percent_str)s %(progress._speed_str)s %(progress._eta_str)s',
+        'download:DLPROG %(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s',
         '-o',
         path.join(outputDir, '%(title)s [%(id)s].%(ext)s'),
     ];
@@ -502,8 +584,16 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
     }
 
+    // yt-dlp gives no percentage during post-processing, so we cheat: point
+    // ffmpeg's -progress at a temp file and track out_time ourselves. The
+    // renderer then shows a real percentage instead of an indeterminate bar.
+    // yt-dlp's arg splitter chokes on backslash paths, so use forward slashes.
+    const ppFile = path.join(os.tmpdir(), `arcdlp-pp-${process.pid}-${Date.now()}.txt`).replace(/\\/g, '/');
+    const ppArgs = ['-progress', ppFile];
+
     if (extractAudio) {
         args.push('-x', '--audio-format', audioFormat || 'mp3', '--audio-quality', '0');
+        args.push('--postprocessor-args', 'ffmpeg:' + ppArgs.join(' '));
     } else if (formatId) {
         const codec = videoCodec && VIDEO_CODEC_SORT[videoCodec] ? videoCodec : null;
         const container = codec ? VIDEO_CODEC_CONTAINER[codec] : 'mp4';
@@ -524,10 +614,29 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
             // Re-encode audio to AAC for universal playback.
             // YouTube serves Opus audio which Windows Media Player can't decode in MP4.
             // AAC is fast to encode and works on every player on every OS.
-            args.push('--postprocessor-args', 'ffmpeg:-c:v copy -c:a aac');
+            ppArgs.push('-c:v copy', '-c:a aac');
+            args.push('--postprocessor-args', 'ffmpeg:' + ppArgs.join(' '));
+        } else {
+            // WebM takes yt-dlp's default straight copy merge. AAC is not valid in
+            // WebM, and the format sort above already biases audio to Opus.
+            args.push('--postprocessor-args', 'ffmpeg:' + ppArgs.join(' '));
         }
-        // WebM takes yt-dlp's default straight copy merge. AAC is not valid in
-        // WebM, and the format sort above already biases audio to Opus.
+    }
+
+    // Chapter handling. Embedding adds chapter markers to the file, splitting
+    // writes each chapter as its own file. Split already implies embed, so we
+    // only pass one flag. Both need ffmpeg to remux.
+    if (splitChapters || embedChapters) {
+        const hasFfmpeg = ffmpeg && ffmpeg !== 'ffmpeg';
+        if (hasFfmpeg) {
+            if (splitChapters) {
+                args.push('--split-chapters');
+            } else {
+                args.push('--embed-chapters');
+            }
+        } else {
+            onLog('Chapter options need ffmpeg, skipping them for this download.');
+        }
     }
 
     await appendCookieArgs(args, url);
@@ -535,7 +644,58 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
     log('Download args:', args.join(' '));
 
     return new Promise((resolve, reject) => {
-        const proc = spawn(ytdlp, args, { env: getSpawnEnv() });
+        // cwd matters: --split-chapters writes chapter files relative to the
+        // working directory, not the -o path. Without this they'd end up in
+        // the app folder instead of the chosen download folder.
+        const proc = spawn(ytdlp, args, { env: getSpawnEnv(), cwd: outputDir });
+
+        // Active download state. Progress lines update it, and post-processor
+        // lines switch the phase so the UI can show what is happening.
+        const state = { percent: '0%', percentNum: 0, speed: '', eta: '', phase: 'download', ppStep: '', encodePct: null };
+        // When --split-chapters runs, yt-dlp keeps the whole file as a
+        // "non-destructive" leftover. Track the full-file path so we can
+        // delete it after the chapter files are written.
+        let mainOutputFile = null;
+        let splitProducedChapters = false;
+
+        function emitProgress() {
+            onProgress({ ...state });
+        }
+
+        // Real post-process percentage. yt-dlp prints no numbers, so track the
+        // ffmpeg -progress file we injected: out_time vs the media duration.
+        let ppTimer = null;
+        function startPpPolling() {
+            if (ppTimer || !duration) return;
+            ppTimer = setInterval(() => {
+                try {
+                    if (state.phase !== 'processing' || !ENCODE_STEPS.has(state.ppStep)) return;
+                    const txt = fs.readFileSync(ppFile, 'utf8');
+                    const m = txt.match(/out_time_us=(\d+)/g);
+                    if (!m) return;
+                    const lastUs = parseInt(m[m.length - 1].split('=')[1], 10) || 0;
+                    const totalUs = duration * 1000000;
+                    const pct = lastUs > 0 ? Math.min(100, (lastUs / totalUs) * 100) : 0;
+                    if (Math.abs(pct - (state.encodePct || 0)) >= 1) {
+                        state.encodePct = Math.round(pct);
+                        emitProgress();
+                    }
+                } catch {
+                    // File not ready yet; keep polling
+                }
+            }, 500);
+        }
+        function stopPpPolling() {
+            if (ppTimer) {
+                clearInterval(ppTimer);
+                ppTimer = null;
+            }
+            try {
+                fs.unlinkSync(ppFile);
+            } catch {
+                /* */
+            }
+        }
 
         // Parse progress from both stdout and stderr
         function parseOutput(data) {
@@ -543,26 +703,56 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
             const lines = text.split('\n');
             for (const line of lines) {
                 if (line.startsWith('DLPROG ')) {
-                    const parts = line.slice(7).trim().split(/\s+/);
-                    const percent = (parts[0] || '0%').trim();
-                    const speed = (parts[1] || '').trim();
-                    const eta = (parts[2] || '').trim();
-                    log('Progress:', percent, speed, eta);
-                    onProgress({ percent, speed, eta });
+                    // Pipe-separated fields: speed values can contain spaces
+                    // ("Unknown B/s"), so whitespace splitting shifts columns.
+                    const parts = line.slice(7).trim().split('|');
+                    state.percent = (parts[0] || '0%').trim();
+                    state.percentNum = parseFloat(state.percent) || 0;
+                    state.speed = cleanReportedSpeed((parts[1] || '').trim());
+                    state.eta = cleanReportedEta((parts[2] || '').trim());
+                    state.phase = 'download';
+                    state.ppStep = '';
+                    log('Progress:', Math.round(state.percentNum) + '%', state.speed || '-', state.eta || '-');
+                    emitProgress();
                     continue;
                 }
 
                 const trimmed = line.trim();
-                if (trimmed && !trimmed.startsWith('WARNING')) {
-                    if (
-                        trimmed.startsWith('[download]') ||
-                        trimmed.startsWith('[Merger]') ||
-                        trimmed.startsWith('[ExtractAudio]') ||
-                        trimmed.startsWith('[info]') ||
-                        trimmed.startsWith('Deleting')
-                    ) {
-                        onLog(trimmed);
+                if (!trimmed || trimmed.startsWith('WARNING')) continue;
+
+                const step = postProcessStep(trimmed);
+                if (step || trimmed.startsWith('Deleting')) {
+                    // Only claim the encoding phase once the file is actually
+                    // downloaded, so unrelated [Merger]/[info] noise during
+                    // early progress is never mistaken for post-processing.
+                    if (step && state.percentNum >= 100) {
+                        state.phase = 'processing';
+                        state.ppStep = step;
+                        if (ENCODE_STEPS.has(step)) {
+                            startPpPolling();
+                        } else {
+                            // Remux/embed/split are instant; clear the encode
+                            // fill so the UI falls back to an indeterminate bar.
+                            state.encodePct = null;
+                        }
+                    } else if (trimmed.startsWith('Deleting')) {
+                        state.phase = 'cleanup';
+                        state.ppStep = '';
                     }
+                    if (trimmed.startsWith('[SplitChapters] Chapter') && !trimmed.includes('unavailable')) {
+                        splitProducedChapters = true;
+                    } else {
+                        const dest = postProcessPath(trimmed);
+                        if (dest) mainOutputFile = dest;
+                    }
+
+                    onLog(trimmed);
+                    emitProgress();
+                    continue;
+                }
+
+                if (trimmed.startsWith('[download]') || trimmed.startsWith('[info]')) {
+                    onLog(trimmed);
                 }
             }
         }
@@ -576,6 +766,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
         });
 
         proc.on('close', (code) => {
+            stopPpPolling();
             if (code !== 0) {
                 const msg = stderrBuf.trim() || `yt-dlp exited with code ${code}`;
                 logError('Download failed:', msg);
@@ -584,15 +775,29 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
             }
             log('Download completed');
             onLog('Download complete ✓');
+            if (splitProducedChapters && mainOutputFile) {
+                // --split-chapters is non-destructive: yt-dlp leaves the full
+                // file next to the chapter files. The user asked for chapters,
+                // so drop the redundant copy now that the split succeeded.
+                try {
+                    fs.unlinkSync(mainOutputFile);
+                    log('Removed full file after chapter split:', mainOutputFile);
+                } catch (e) {
+                    log('Could not remove full file after split:', e.message);
+                }
+            }
             resolve({ ok: true });
         });
 
         proc.on('error', (err) => {
+            // Spawn failed before any output; no 'close' will fire, so clean up
+            // the interval and the temp progress file here as well.
+            stopPpPolling();
             logError('Download spawn error:', err.message);
             reject(new Error(`Cannot run yt-dlp: ${err.message}`));
         });
 
-        callbacks._proc = proc;
+        if (onSpawn) onSpawn(proc);
     });
 }
 

@@ -584,6 +584,80 @@ button {
     margin: 12px 0;
 }
 
+/* Chapter Options */
+
+.chapter-options {
+    margin-bottom: 16px;
+}
+
+.options-row {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 10px;
+}
+
+.options-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.options-item input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.options-check {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--text-3);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.options-item:hover .options-check {
+    border-color: var(--accent);
+}
+
+.options-item input:checked + .options-check {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.options-item input:checked + .options-check::after {
+    content: "✓";
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.options-item input:disabled + .options-check {
+    opacity: 0.4;
+    border-color: var(--text-3);
+    background: var(--text-3);
+}
+
+.options-label {
+    color: var(--text);
+}
+
+.options-hint {
+    font-size: 12px;
+    color: var(--text-3);
+    line-height: 1.5;
+}
+
 /* Empty State */
 
 .empty-state {
@@ -1283,13 +1357,6 @@ button {
     border-color: var(--accent);
 }
 
-.pl-format-note {
-    font-size: 12px;
-    color: var(--text-3);
-    font-style: italic;
-    margin-top: -4px;
-}
-
 /* Queue Tab */
 
 .queue-toolbar {
@@ -1473,15 +1540,42 @@ button {
     transition: width 0.4s ease;
 }
 
+/* Post-processing (merge/encode) shows an indeterminate striped bar. */
+.q-item-progress-fill.full {
+    width: 100% !important;
+    transition: none;
+}
+
+.q-item-progress-fill.striped {
+    background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.25) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.25) 50%,
+        rgba(255, 255, 255, 0.25) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 24px 24px;
+    animation: qStripes 0.9s linear infinite;
+}
+
+@keyframes qStripes {
+    from {
+        background-position: 0 0;
+    }
+
+    to {
+        background-position: 24px 0;
+    }
+}
+
 /* Queue state styling */
 
 .q-state-downloading {
     border-color: rgba(0, 122, 255, 0.25);
     background: var(--accent-soft);
-}
-
-.q-state-completed {
-    opacity: 0.65;
 }
 
 .q-state-failed {
