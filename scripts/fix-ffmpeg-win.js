@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 exports.default = async function (context) {
     const platform = context.electronPlatformName;
@@ -25,8 +25,8 @@ exports.default = async function (context) {
         for (const bin of binaries) {
             if (fs.existsSync(bin)) {
                 try {
-                    execSync(`xattr -cr "${bin}"`);
-                    execSync(`chmod +x "${bin}"`);
+                    spawnSync('xattr', ['-cr', bin], { stdio: 'inherit' });
+                    spawnSync('chmod', ['+x', bin], { stdio: 'inherit' });
                     console.log(`Fixed permissions: ${path.basename(bin)}`);
                 } catch (err) {
                     console.warn(`Warning: could not fix ${path.basename(bin)}: ${err.message}`);
