@@ -8,12 +8,15 @@ contextBridge.exposeInMainWorld('api', {
 
     checkDeps: () => ipcRenderer.invoke('deps:check'),
     getDepVersions: () => ipcRenderer.invoke('deps:versions'),
+    updateYtdlp: () => ipcRenderer.invoke('deps:updateYtdlp'),
 
     getDownloadPath: () => ipcRenderer.invoke('settings:getDownloadPath'),
     chooseDownloadPath: () => ipcRenderer.invoke('settings:chooseDownloadPath'),
     getVideoCodec: () => ipcRenderer.invoke('settings:getVideoCodec'),
     setVideoCodec: (codec) => ipcRenderer.invoke('settings:setVideoCodec', codec),
-    openFolder: (p) => ipcRenderer.invoke('settings:openFolder', p),
+    openFolder: () => ipcRenderer.invoke('settings:openFolder'),
+    getProxy: () => ipcRenderer.invoke('settings:getProxy'),
+    setProxy: (url) => ipcRenderer.invoke('settings:setProxy', url),
     openExternal: (url) => ipcRenderer.invoke('settings:openExternal', url),
 
     getAppInfo: () => ipcRenderer.invoke('app:info'),
@@ -40,6 +43,7 @@ contextBridge.exposeInMainWorld('api', {
     // Playlist
     fetchPlaylist: (url) => ipcRenderer.invoke('playlist:fetch', url),
     detectPlaylist: (url) => ipcRenderer.invoke('playlist:detect', url),
+    cancelFetch: () => ipcRenderer.invoke('fetch:cancel'),
 
     // Queue
     queueAdd: (items) => ipcRenderer.invoke('queue:add', items),

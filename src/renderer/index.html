@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
     <title>ArcDLP</title>
     <link rel="stylesheet" href="./index.css" />
 </head>
@@ -57,7 +59,7 @@
                             <path d="M23 12v6h6" />
                         </svg>
                     </button>
-                    <button id="fetchBtn" class="btn btn-primary" onclick="doFetch()">
+                    <button id="fetchBtn" class="btn btn-primary" onclick="onFetchBtn()">
                         Fetch
                     </button>
                 </div>
@@ -283,6 +285,26 @@
                 </div>
 
                 <div class="settings-section">
+                    <div class="settings-section-title">Network</div>
+                    <div class="settings-row">
+                        <div class="settings-row-info" style="flex:1;min-width:0;">
+                            <div class="settings-row-label">Proxy</div>
+                            <input id="proxyInput" type="text" class="settings-proxy-input"
+                                placeholder="socks5://127.0.0.1:1080" spellcheck="false" autocomplete="off" />
+                        </div>
+                        <div class="settings-row-action">
+                            <button class="btn-sm" onclick="doSaveProxy()">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-hint">
+                        Route fetches and downloads through a proxy. Supports HTTP, HTTPS, and SOCKS (e.g.
+                        <code>socks5://host:port</code>). Leave empty for a direct connection.
+                    </div>
+                </div>
+
+                <div class="settings-section">
                     <div class="settings-section-title">YouTube Account</div>
                     <div class="settings-row">
                         <div class="settings-row-info">
@@ -336,6 +358,9 @@
                             </div>
                         </div>
                         <div class="settings-row-action">
+                            <button id="ytdlpUpdateBtn" class="btn-sm" onclick="doUpdateYtdlp()">
+                                Update
+                            </button>
                             <div id="depYtdlpStatus" class="settings-dep-status">
                                 <span class="dep-dot"></span>
                             </div>

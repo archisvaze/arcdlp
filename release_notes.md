@@ -36,3 +36,5 @@ picked, the download still runs using the best available format. Check this in l
 - macOS: `ArcDLP-1.4.3-arm64.dmg`
 - Windows: `ArcDLP-Setup-1.4.3.exe`
 - Linux: `ArcDLP-1.4.3.AppImage`
+
+[Code signing policy](https://arcdlp.archisvaze.com/#code-signing)

@@ -379,6 +379,23 @@ great contributions:
 - Playlist checkbox uses inline `onchange` handler - could use event delegation
 - Log type detection is greedy (`msg.includes('complete')` matches "incomplete")
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by
+[SignPath Foundation](https://signpath.org). Only Windows installers built by
+GitHub Actions from this repository are signed. Signed builds start with the
+first release after the project is approved.
+
+- Committers and reviewers: [Archis Vaze](https://github.com/archisvaze)
+- Approvers: [Archis Vaze](https://github.com/archisvaze)
+
+## Privacy
+
+ArcDLP has no accounts, analytics or telemetry. It only connects to the sites
+you download from, the GitHub releases API for the update check, and GitHub
+when you update yt-dlp from Settings. Full policy:
+[arcdlp.archisvaze.com/privacy](https://arcdlp.archisvaze.com/privacy)
+
 ## License
 
 [MIT](LICENSE)

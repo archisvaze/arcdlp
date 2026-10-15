@@ -1,10 +1,11 @@
 // Main Process
 // Electron entry point. Window, IPC, app lifecycle.
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const ytdlp = require('./ytdlp');
+const ytdlpUpdate = require('./ytdlp-update');
 const cookies = require('./cookies');
 const { queue } = require('./queue');
 const updater = require('./updater');
@@ -28,12 +29,29 @@ const store = new Store({
     defaults: {
         downloadPath: path.join(app.getPath('downloads'), APP_NAME),
         videoCodec: 'auto',
+        proxyUrl: '',
         history: [],
     },
 });
 
 let mainWindow = null;
 let cachedVersions = { ytdlp: null, ffmpeg: null, deno: null };
+
+// Only the app's own page may call into the main process
+function isTrustedSender(e) {
+    try {
+        return new URL(e.senderFrame.url).protocol === 'file:';
+    } catch {
+        return false;
+    }
+}
+
+function handle(channel, fn) {
+    ipcMain.handle(channel, (e, ...args) => {
+        if (!isTrustedSender(e)) throw new Error('Blocked IPC call from an untrusted page');
+        return fn(e, ...args);
+    });
+}
 
 function send(channel, data) {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -61,6 +79,10 @@ function createWindow() {
         },
         show: false,
     });
+
+    // The window never leaves the app page. Dropped links and new windows would otherwise get the preload API.
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    mainWindow.webContents.on('will-navigate', (e) => e.preventDefault());
 
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
@@ -91,6 +113,8 @@ function createWindow() {
 app.whenReady().then(() => {
     log('App starting, DEV_MODE:', DEV_MODE);
     log('Platform:', process.platform, process.arch);
+    cookies.purgeCookieFiles();
+    ytdlp.setProxyUrl(store.get('proxyUrl'));
     createWindow();
 
     // Fetch dependency versions in the background
@@ -154,8 +178,11 @@ function addToHistory(info, presets) {
     // Remove existing entry for same video
     const filtered = history.filter((h) => `${h.info.extractor_key}:${h.info.id}` !== key);
 
+    // History never uses these and they make every save large
+    const { formats, description, tags, categories, ...slim } = info;
+
     filtered.unshift({
-        info,
+        info: slim,
         presets,
         fetchedAt: Date.now(),
     });
@@ -164,11 +191,11 @@ function addToHistory(info, presets) {
     log('History updated, total:', Math.min(filtered.length, MAX_HISTORY));
 }
 
-ipcMain.handle('history:get', () => {
+handle('history:get', () => {
     return store.get('history') || [];
 });
 
-ipcMain.handle('history:remove', (_e, videoId, extractorKey) => {
+handle('history:remove', (_e, videoId, extractorKey) => {
     const history = store.get('history') || [];
     const filtered = history.filter((h) => !(h.info.id === videoId && h.info.extractor_key === extractorKey));
     store.set('history', filtered);
@@ -176,29 +203,50 @@ ipcMain.handle('history:remove', (_e, videoId, extractorKey) => {
     return filtered;
 });
 
-ipcMain.handle('history:clear', () => {
+handle('history:clear', () => {
     store.set('history', []);
     log('History cleared');
     return [];
 });
 
-ipcMain.handle('deps:check', () => {
+handle('deps:check', () => {
     log('Checking dependencies...');
     return ytdlp.checkDeps();
 });
 
-ipcMain.handle('deps:versions', () => {
+handle('deps:versions', () => {
     return cachedVersions;
 });
 
-ipcMain.handle('video:fetch', async (_e, url) => {
+handle('deps:updateYtdlp', async () => {
+    if (queue.isActive) throw new Error('Wait for the queue to finish before updating yt-dlp');
+    send('log', 'Checking for a newer yt-dlp...');
+    const result = await ytdlpUpdate.updateYtdlp(cachedVersions.ytdlp);
+    if (result.updated) {
+        cachedVersions = await ytdlp.getVersions();
+        send('log', `yt-dlp updated to ${result.version} ✓`);
+    } else {
+        send('log', `yt-dlp is up to date (${result.version})`);
+    }
+    return result;
+});
+
+handle('video:fetch', async (_e, url) => {
     log('Fetch requested:', url);
     send('log', 'Fetching video info...');
 
     try {
-        const { info, raw } = await ytdlp.fetchInfo(url, {
+        const result = await ytdlp.fetchInfo(url, {
             onLog: (msg) => send('log', msg),
         });
+
+        // Several videos in one post, the renderer shows them in the playlist view
+        if (result.playlist) {
+            send('log', `Found ${result.playlist.items.length} videos in this post`);
+            return { playlist: result.playlist };
+        }
+
+        const { info } = result;
         const videoCodec = store.get('videoCodec') || 'auto';
         const presets = ytdlp.buildPresets(info.formats, videoCodec);
         send('log', `Found: ${info.title}`);
@@ -216,16 +264,16 @@ ipcMain.handle('video:fetch', async (_e, url) => {
 
         addToHistory(info, presets);
 
-        return { info, presets, raw };
+        return { info, presets };
     } catch (err) {
         send('log', `Error: ${err.message}`);
         throw err;
     }
 });
 
-ipcMain.handle('settings:getDownloadPath', () => store.get('downloadPath'));
+handle('settings:getDownloadPath', () => store.get('downloadPath'));
 
-ipcMain.handle('settings:chooseDownloadPath', async () => {
+handle('settings:chooseDownloadPath', async () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
         return store.get('downloadPath');
     }
@@ -242,9 +290,9 @@ ipcMain.handle('settings:chooseDownloadPath', async () => {
     return store.get('downloadPath');
 });
 
-ipcMain.handle('settings:getVideoCodec', () => store.get('videoCodec') || 'auto');
+handle('settings:getVideoCodec', () => store.get('videoCodec') || 'auto');
 
-ipcMain.handle('settings:setVideoCodec', (_e, codec) => {
+handle('settings:setVideoCodec', (_e, codec) => {
     const allowed = ['auto', 'h264', 'vp9', 'av1'];
     const next = allowed.includes(codec) ? codec : 'auto';
     store.set('videoCodec', next);
@@ -253,24 +301,37 @@ ipcMain.handle('settings:setVideoCodec', (_e, codec) => {
     return next;
 });
 
-ipcMain.handle('settings:openFolder', (_e, p) => {
-    shell.openPath(p || store.get('downloadPath'));
+handle('settings:openFolder', () => {
+    shell.openPath(store.get('downloadPath'));
 });
 
-ipcMain.handle('settings:openExternal', (_e, url) => {
+handle('settings:getProxy', () => store.get('proxyUrl') || '');
+
+handle('settings:setProxy', (_e, url) => {
+    const cleaned = String(url || '').trim();
+    if (cleaned && !/^(https?|socks4a?|socks5h?):\/\/\S+$/i.test(cleaned)) {
+        throw new Error('Use a proxy URL like socks5://127.0.0.1:1080');
+    }
+    store.set('proxyUrl', cleaned);
+    ytdlp.setProxyUrl(cleaned);
+    log('Proxy URL changed:', cleaned || '(none)');
+    return cleaned;
+});
+
+handle('settings:openExternal', (_e, url) => {
     if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
         shell.openExternal(url);
     }
 });
 
-ipcMain.handle('app:info', () => ({
+handle('app:info', () => ({
     version: app.getVersion(),
     devMode: DEV_MODE,
     platform: process.platform,
     arch: process.arch,
 }));
 
-ipcMain.handle('app:checkForUpdates', async () => {
+handle('app:checkForUpdates', async () => {
     const result = await updater.checkForUpdates(app.getVersion());
     if (result.hasUpdate) {
         send('update-available', result);
@@ -280,9 +341,9 @@ ipcMain.handle('app:checkForUpdates', async () => {
 
 // Auth
 
-ipcMain.handle('auth:check', () => cookies.hasCookies());
+handle('auth:check', () => cookies.hasCookies());
 
-ipcMain.handle('auth:login', async () => {
+handle('auth:login', async () => {
     log('Opening YouTube login window');
     send('log', 'Opening YouTube sign-in...');
     const success = await cookies.openLoginWindow(mainWindow);
@@ -296,7 +357,7 @@ ipcMain.handle('auth:login', async () => {
     return success;
 });
 
-ipcMain.handle('auth:logout', async () => {
+handle('auth:logout', async () => {
     await cookies.clearCookies();
     send('log', 'Signed out of YouTube');
     log('YouTube logout');
@@ -305,9 +366,9 @@ ipcMain.handle('auth:logout', async () => {
 
 // Instagram Auth
 
-ipcMain.handle('insta:check', () => cookies.hasInstaCookies());
+handle('insta:check', () => cookies.hasInstaCookies());
 
-ipcMain.handle('insta:login', async () => {
+handle('insta:login', async () => {
     log('Opening Instagram login window');
     send('log', 'Opening Instagram sign-in...');
     const success = await cookies.openInstaLoginWindow(mainWindow);
@@ -321,7 +382,7 @@ ipcMain.handle('insta:login', async () => {
     return success;
 });
 
-ipcMain.handle('insta:logout', async () => {
+handle('insta:logout', async () => {
     await cookies.clearInstaCookies();
     send('log', 'Signed out of Instagram');
     log('Instagram logout');
@@ -330,7 +391,8 @@ ipcMain.handle('insta:logout', async () => {
 
 // Instagram Collection Scraper
 
-ipcMain.handle('scraper:collection', async (_e, url) => {
+handle('scraper:collection', async (_e, url) => {
+    if (!scraper.isInstagramCollection(url)) throw new Error('Not an Instagram saved collection URL');
     log('Scraper: collection requested:', url);
     send('log', 'Scraping Instagram collection...');
 
@@ -351,14 +413,22 @@ ipcMain.handle('scraper:collection', async (_e, url) => {
 
 // Playlist
 
-ipcMain.handle('playlist:fetch', async (_e, url) => {
+let playlistProc = null;
+let playlistCancelled = false;
+
+handle('playlist:fetch', async (_e, url) => {
     log('Playlist fetch requested:', url);
     send('log', 'Fetching playlist...');
+    playlistCancelled = false;
 
     try {
         const result = await ytdlp.fetchPlaylist(url, {
             onLog: (msg) => send('log', msg),
             onItem: (item, count) => send('playlist:item', { item, count }),
+            onSpawn: (proc) => {
+                playlistProc = proc;
+            },
+            isCancelled: () => playlistCancelled,
         });
 
         send('log', `Playlist: ${result.items.length} items found`);
@@ -367,62 +437,86 @@ ipcMain.handle('playlist:fetch', async (_e, url) => {
     } catch (err) {
         send('log', `Error: ${err.message}`);
         throw err;
+    } finally {
+        playlistProc = null;
     }
 });
 
-ipcMain.handle('playlist:detect', (_e, url) => {
+// Stops a playlist fetch or collection scrape, items found so far are kept
+handle('fetch:cancel', () => {
+    playlistCancelled = true;
+    if (playlistProc) {
+        try {
+            playlistProc.kill('SIGTERM');
+        } catch {
+            //
+        }
+    }
+    scraper.cancelScrape();
+    return { ok: true };
+});
+
+handle('playlist:detect', (_e, url) => {
     return ytdlp.looksLikePlaylist(url);
 });
 
 // Queue
 
-ipcMain.handle('queue:add', (_e, items) => {
+handle('queue:add', (_e, items) => {
     log('Queue: adding', items.length, 'items');
     return queue.add(items);
 });
 
-ipcMain.handle('queue:getAll', () => {
+handle('queue:getAll', () => {
     return queue.getAll();
 });
 
-ipcMain.handle('queue:getCounts', () => {
+handle('queue:getCounts', () => {
     return queue.counts;
 });
 
-ipcMain.handle('queue:cancelCurrent', () => {
+handle('queue:cancelCurrent', () => {
     queue.cancelCurrent();
     return { ok: true };
 });
 
-ipcMain.handle('queue:cancelAll', () => {
+handle('queue:cancelAll', () => {
     queue.cancelAll();
     return { ok: true };
 });
 
-ipcMain.handle('queue:retry', (_e, itemId) => {
+handle('queue:retry', (_e, itemId) => {
     queue.retry(itemId);
     return { ok: true };
 });
 
-ipcMain.handle('queue:retryFailed', () => {
+handle('queue:retryFailed', () => {
     queue.retryFailed();
     return { ok: true };
 });
 
-ipcMain.handle('queue:clearCompleted', () => {
+handle('queue:clearCompleted', () => {
     queue.clearCompleted();
     return { ok: true };
 });
 
-ipcMain.handle('queue:remove', (_e, itemId) => {
+handle('queue:remove', (_e, itemId) => {
     queue.remove(itemId);
     return { ok: true };
 });
 
-ipcMain.handle('app:reset', async () => {
+handle('app:reset', async () => {
     try {
         const userDataPath = app.getPath('userData');
         log('Reset requested. userData:', userDataPath);
+
+        // Clear sessions and settings through Electron first. Windows keeps some userData files
+        // locked while the app runs, so deleting the folder alone can leave sign-ins behind.
+        queue.cancelAll();
+        await cookies.clearCookies().catch(() => {});
+        await cookies.clearInstaCookies().catch(() => {});
+        await session.defaultSession.clearStorageData().catch(() => {});
+        store.clear();
 
         // Relaunch AFTER cleanup
         setTimeout(() => {

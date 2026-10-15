@@ -6,6 +6,13 @@ const { log, logError } = require('./utils');
 
 const PARTITION = 'persist:instagram-login';
 
+let activeWin = null;
+
+// Stops a running scrape, posts found so far are kept
+function cancelScrape() {
+    if (activeWin && !activeWin.isDestroyed()) activeWin.close();
+}
+
 function scrapeCollection(url, parent, { onLog, onItem } = {}) {
     const _log = (msg) => {
         log('Scraper:', msg);
@@ -25,6 +32,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
             },
             autoHideMenuBar: true,
         });
+        activeWin = win;
 
         let resolved = false;
         const items = [];
@@ -72,6 +80,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
         });
 
         win.on('closed', () => {
+            if (activeWin === win) activeWin = null;
             clearTimeout(timer);
             if (!resolved) {
                 if (items.length > 0) {
@@ -202,7 +211,7 @@ function isInstagramCollection(url) {
     if (!url) return false;
     try {
         const u = new URL(url);
-        if (!u.hostname.includes('instagram.com')) return false;
+        if (!/^https?:$/.test(u.protocol) || !/(^|\.)instagram\.com$/.test(u.hostname)) return false;
         // /username/saved/ or /username/saved/collection_name/id/
         return u.pathname.includes('/saved/');
     } catch {
@@ -210,4 +219,4 @@ function isInstagramCollection(url) {
     }
 }
 
-module.exports = { scrapeCollection, isInstagramCollection };
+module.exports = { scrapeCollection, isInstagramCollection, cancelScrape };

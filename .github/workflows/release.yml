@@ -1,0 +1,132 @@
+name: Release builds
+
+# Builds the Windows installer and Linux AppImage on GitHub-hosted runners.
+# Pushing a v* tag also creates a draft release with both files. macOS is still built locally.
+# Windows signing runs once the SIGNPATH_ORGANIZATION_ID variable and SIGNPATH_API_TOKEN secret exist.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build installer
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Upload unsigned installer
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-unsigned
+          path: dist/*-Setup-*.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: arcdlp
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist/signed
+
+      - name: Upload signed installer
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-signed
+          path: dist/signed/*.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build AppImage
+        run: npx electron-builder --linux --x64 --publish never
+
+      # Repack with the static AppImage runtime (no libfuse2 needed) and embed update info for .zsync delta updates
+      - name: Repack AppImage
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q && sudo apt-get install -y -q zsync libfuse2
+          cd dist
+          APPIMAGE=$(ls ArcDLP-*.AppImage)
+          chmod +x "$APPIMAGE"
+          ./"$APPIMAGE" --appimage-extract > /dev/null
+          rm "$APPIMAGE"
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run -n \
+            -u "gh-releases-zsync|archisvaze|arcdlp|latest|ArcDLP-*.AppImage.zsync" \
+            squashfs-root "$APPIMAGE"
+          ls -la ArcDLP-*
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            dist/ArcDLP-*.AppImage
+            dist/ArcDLP-*.AppImage.zsync
+          if-no-files-found: error
+
+  release:
+    needs: [windows, linux]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect files
+        run: |
+          set -euo pipefail
+          mkdir upload
+          if ls artifacts/windows-signed/*.exe > /dev/null 2>&1; then
+            cp artifacts/windows-signed/*.exe upload/
+          else
+            cp artifacts/windows-unsigned/*.exe upload/
+          fi
+          cp artifacts/linux/* upload/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          body_path: release_notes.md
+          files: upload/*

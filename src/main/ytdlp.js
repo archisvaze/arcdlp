@@ -18,12 +18,39 @@ const VIDEO_CODEC_SORT = {
 };
 
 // The container each codec muxes into most reliably.
-// VP9 goes to WebM with Opus audio.
+// VP9 goes to WebM with Opus audio, or MKV when the fallback format can't go in WebM (H.264, AAC).
 const VIDEO_CODEC_CONTAINER = {
     h264: 'mp4',
-    vp9: 'webm',
+    vp9: 'webm/mkv',
     av1: 'mp4',
 };
+
+let proxyUrl = '';
+
+function setProxyUrl(url) {
+    proxyUrl = (url || '').trim();
+    if (proxyUrl) log('Proxy set:', proxyUrl);
+}
+
+function appendProxyArgs(args) {
+    if (proxyUrl) args.push('--proxy', proxyUrl);
+}
+
+// Feeds chunks in and calls onLine once per complete line, carrying partial lines over
+function lineReader(onLine) {
+    let buf = '';
+    const feed = (d) => {
+        buf += d.toString();
+        const lines = buf.split(/\r?\n/);
+        buf = lines.pop() || '';
+        lines.forEach(onLine);
+    };
+    feed.flush = () => {
+        if (buf) onLine(buf);
+        buf = '';
+    };
+    return feed;
+}
 
 const VIDEO_CODEC_LABELS = {
     auto: 'Auto',
@@ -52,17 +79,20 @@ async function appendCookieArgs(args, url) {
             if (cookieFile) {
                 args.push('--cookies', cookieFile);
                 log('Using Instagram cookie file:', cookieFile);
+                return cookieFile;
             }
         } else {
             const cookieFile = await cookies.getCookieFile();
             if (cookieFile) {
                 args.push('--cookies', cookieFile);
                 log('Using cookie file:', cookieFile);
+                return cookieFile;
             }
         }
     } catch (err) {
         logError('Cookie file error:', err.message);
     }
+    return null;
 }
 
 function getFfmpegPath() {
@@ -105,6 +135,13 @@ function getFfmpegPath() {
 function getYtdlpPath() {
     const ext = process.platform === 'win32' ? '.exe' : '';
     const binary = 'yt-dlp' + ext;
+
+    // A yt-dlp updated from Settings takes priority over the bundled one
+    const updated = require('./ytdlp-update').getInstalledPath();
+    if (updated) {
+        log('Using updated yt-dlp:', updated);
+        return updated;
+    }
 
     try {
         const resPath = path.join(process.resourcesPath || '', 'bin', binary);
@@ -181,7 +218,7 @@ function checkDeps() {
 
 function execVersion(binPath, args) {
     return new Promise((resolve) => {
-        const proc = execFile(binPath, args, { encoding: 'utf8', timeout: 1000000 }, (err, stdout) => {
+        const proc = execFile(binPath, args, { encoding: 'utf8', timeout: 60000 }, (err, stdout) => {
             if (err) return resolve(null);
             resolve(stdout);
         });
@@ -247,13 +284,14 @@ async function fetchInfo(url, { onLog } = {}) {
     _log('Launching yt-dlp...');
     log('Fetching info:', url);
 
-    const args = ['--dump-json', '--no-playlist', '--no-warnings', '--ignore-config', '--no-check-formats', '--socket-timeout', '30'];
+    const args = ['--dump-single-json', '--no-playlist', '--no-warnings', '--ignore-config', '--no-check-formats', '--socket-timeout', '30'];
     const ffmpeg = getFfmpegPath();
     if (ffmpeg && ffmpeg !== 'ffmpeg') {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
     }
-    await appendCookieArgs(args, url);
-    args.push(url);
+    const cookieFile = await appendCookieArgs(args, url);
+    appendProxyArgs(args);
+    args.push('--', url);
 
     return new Promise((resolve, reject) => {
         const proc = spawn(ytdlp, args, { env: getSpawnEnv() });
@@ -291,6 +329,7 @@ async function fetchInfo(url, { onLog } = {}) {
 
         proc.on('close', (code) => {
             clearTimeout(timer);
+            cookies.removeCookieFile(cookieFile);
             if (killed) return; // already rejected by timeout
 
             if (code !== 0) {
@@ -303,6 +342,12 @@ async function fetchInfo(url, { onLog } = {}) {
 
             try {
                 const raw = JSON.parse(stdout);
+                // Posts with several videos (Instagram carousels, Reddit galleries) come back as a playlist
+                if (raw._type === 'playlist') {
+                    const playlist = toPostPlaylist(raw, url);
+                    _log(`Found ${playlist.items.length} videos in this post`);
+                    return resolve({ playlist });
+                }
                 const info = cleanInfo(raw);
                 _log(`Found: ${info.title}`);
                 log('Fetched:', info.title, `(${info.formats.length} formats)`);
@@ -315,11 +360,37 @@ async function fetchInfo(url, { onLog } = {}) {
 
         proc.on('error', (err) => {
             clearTimeout(timer);
+            cookies.removeCookieFile(cookieFile);
             if (killed) return;
             logError('Spawn error:', err.message);
             reject(new Error(`Cannot run yt-dlp: ${err.message}`));
         });
     });
+}
+
+// Playlist view items for the videos inside one post. Each downloads with --playlist-items.
+function toPostPlaylist(raw, url) {
+    const postUrl = raw.webpage_url || url;
+    const items = (raw.entries || [])
+        .map((e, i) =>
+            e
+                ? {
+                      id: `${raw.id || 'post'}-${i + 1}`,
+                      title: `${e.title || raw.title || 'Video'} (${i + 1})`,
+                      url: postUrl,
+                      webpage_url: postUrl,
+                      duration: e.duration || null,
+                      duration_string: e.duration_string || null,
+                      thumbnail: e.thumbnail || raw.thumbnail || null,
+                      uploader: e.uploader || raw.uploader || '',
+                      extractor_key: e.extractor_key || raw.extractor_key || '',
+                      playlistItem: i + 1,
+                      _playlist_index: i + 1,
+                  }
+                : null,
+        )
+        .filter(Boolean);
+    return { title: raw.title || raw.id || 'Post', items };
 }
 
 function cleanInfo(raw) {
@@ -476,7 +547,47 @@ function buildPresets(formats, videoCodec = 'auto') {
     return presets;
 }
 
-async function download({ url, formatId, outputDir, extractAudio, audioFormat, videoCodec }, callbacks) {
+// Post-processing steps shown in the queue so long merges don't look frozen
+const STAGES = {
+    Merger: 'Merging',
+    ExtractAudio: 'Converting audio',
+    FixupM3u8: 'Fixing container',
+    FixupM4a: 'Fixing container',
+    FixupTimestamp: 'Fixing timestamps',
+    FixupDuplicateMoov: 'Fixing container',
+    Metadata: 'Adding metadata',
+    EmbedThumbnail: 'Adding cover art',
+};
+
+// Adds .temp before the extension, the way yt-dlp names in-progress post-processing output
+function tempName(p) {
+    const ext = path.extname(p);
+    return p.slice(0, p.length - ext.length) + '.temp' + ext;
+}
+
+// Deletes what a cancelled download left behind. Best effort, files may still be locked.
+function removePartialFiles(paths) {
+    for (const p of paths || []) {
+        for (const f of [p, `${p}.part`, `${p}.ytdl`]) {
+            try {
+                fs.unlinkSync(f);
+            } catch {
+                //
+            }
+        }
+        try {
+            const dir = path.dirname(p);
+            const frag = path.basename(p) + '.part-Frag';
+            for (const f of fs.readdirSync(dir)) {
+                if (f.startsWith(frag)) fs.unlinkSync(path.join(dir, f));
+            }
+        } catch {
+            //
+        }
+    }
+}
+
+async function download({ url, formatId, outputDir, extractAudio, audioFormat, videoCodec, playlistItem }, callbacks) {
     const { onProgress, onLog } = callbacks;
 
     const ytdlp = getYtdlpPath();
@@ -503,7 +614,8 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
     }
 
     if (extractAudio) {
-        args.push('-x', '--audio-format', audioFormat || 'mp3', '--audio-quality', '0');
+        // Title, artist and cover art go into the audio file
+        args.push('-x', '--audio-format', audioFormat || 'mp3', '--audio-quality', '0', '--embed-metadata', '--embed-thumbnail');
     } else if (formatId) {
         const codec = videoCodec && VIDEO_CODEC_SORT[videoCodec] ? videoCodec : null;
         const container = codec ? VIDEO_CODEC_CONTAINER[codec] : 'mp4';
@@ -530,52 +642,82 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
         // WebM, and the format sort above already biases audio to Opus.
     }
 
-    await appendCookieArgs(args, url);
-    args.push(url);
+    // Only this video when the URL is a multi-video post
+    if (playlistItem) {
+        args.push('--playlist-items', String(playlistItem));
+    }
+
+    const cookieFile = await appendCookieArgs(args, url);
+    appendProxyArgs(args);
+    args.push('--', url);
     log('Download args:', args.join(' '));
+
+    // Cancelled while the cookie file was being written
+    if (callbacks.isCancelled && callbacks.isCancelled()) {
+        cookies.removeCookieFile(cookieFile);
+        throw new Error('Cancelled');
+    }
+
+    // Files this run writes, so a cancel can clean them up
+    const partials = callbacks.partials || [];
 
     return new Promise((resolve, reject) => {
         const proc = spawn(ytdlp, args, { env: getSpawnEnv() });
+        if (callbacks.onSpawn) callbacks.onSpawn(proc);
 
         // Parse progress from both stdout and stderr
-        function parseOutput(data) {
-            const text = data.toString();
-            const lines = text.split('\n');
-            for (const line of lines) {
-                if (line.startsWith('DLPROG ')) {
-                    const parts = line.slice(7).trim().split(/\s+/);
-                    const percent = (parts[0] || '0%').trim();
-                    const speed = (parts[1] || '').trim();
-                    const eta = (parts[2] || '').trim();
-                    log('Progress:', percent, speed, eta);
-                    onProgress({ percent, speed, eta });
-                    continue;
-                }
+        function parseLine(line) {
+            if (line.startsWith('DLPROG ')) {
+                const parts = line.slice(7).trim().split(/\s+/);
+                const percent = (parts[0] || '0%').trim();
+                const speed = (parts[1] || '').trim();
+                const eta = (parts[2] || '').trim();
+                log('Progress:', percent, speed, eta);
+                onProgress({ percent, speed, eta });
+                return;
+            }
 
-                const trimmed = line.trim();
-                if (trimmed && !trimmed.startsWith('WARNING')) {
-                    if (
-                        trimmed.startsWith('[download]') ||
-                        trimmed.startsWith('[Merger]') ||
-                        trimmed.startsWith('[ExtractAudio]') ||
-                        trimmed.startsWith('[info]') ||
-                        trimmed.startsWith('Deleting')
-                    ) {
-                        onLog(trimmed);
-                    }
+            const trimmed = line.trim();
+            const dest = trimmed.match(/^\[(download|ExtractAudio)\] Destination: (.+)$/);
+            if (dest) partials.push(dest[2]);
+            const thumb = trimmed.match(/^\[info\] Writing video thumbnail .* to: (.+)$/);
+            if (thumb) partials.push(thumb[1]);
+            const merge = trimmed.match(/^\[Merger\] Merging formats into "(.+)"$/);
+            if (merge) partials.push(tempName(merge[1]));
+
+            const step = trimmed.match(/^\[(\w+)\]/);
+            if (step && STAGES[step[1]]) {
+                onProgress({ percent: '100%', speed: '', eta: '', stage: STAGES[step[1]] });
+            }
+
+            if (trimmed && !trimmed.startsWith('WARNING')) {
+                if (
+                    trimmed.startsWith('[download]') ||
+                    trimmed.startsWith('[Merger]') ||
+                    trimmed.startsWith('[ExtractAudio]') ||
+                    trimmed.startsWith('[info]') ||
+                    trimmed.startsWith('Deleting')
+                ) {
+                    onLog(trimmed);
                 }
             }
         }
 
-        proc.stdout.on('data', parseOutput);
+        const readOut = lineReader(parseLine);
+        const readErr = lineReader(parseLine);
+
+        proc.stdout.on('data', readOut);
 
         let stderrBuf = '';
         proc.stderr.on('data', (d) => {
             stderrBuf += d.toString();
-            parseOutput(d);
+            readErr(d);
         });
 
         proc.on('close', (code) => {
+            readOut.flush();
+            readErr.flush();
+            cookies.removeCookieFile(cookieFile);
             if (code !== 0) {
                 const msg = stderrBuf.trim() || `yt-dlp exited with code ${code}`;
                 logError('Download failed:', msg);
@@ -588,6 +730,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
         });
 
         proc.on('error', (err) => {
+            cookies.removeCookieFile(cookieFile);
             logError('Download spawn error:', err.message);
             reject(new Error(`Cannot run yt-dlp: ${err.message}`));
         });
@@ -596,7 +739,23 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
     });
 }
 
-async function fetchPlaylist(url, { onLog, onItem } = {}) {
+// One playlist view item from a --flat-playlist JSON line
+function toPlaylistItem(raw, index) {
+    return {
+        id: raw.id || `item-${index}`,
+        title: raw.title || raw.id || 'Untitled',
+        url: raw.url || raw.webpage_url || '',
+        webpage_url: raw.webpage_url || raw.url || '',
+        duration: raw.duration || null,
+        duration_string: raw.duration_string || null,
+        thumbnail: raw.thumbnails?.[0]?.url || raw.thumbnail || null,
+        uploader: raw.uploader || raw.channel || '',
+        extractor_key: raw.ie_key || raw.extractor_key || '',
+        _playlist_index: index,
+    };
+}
+
+async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) {
     const ytdlp = getYtdlpPath();
     if (!ytdlp) {
         throw new Error('yt-dlp not found. Run npm install to download it.');
@@ -615,11 +774,19 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
     if (ffmpeg && ffmpeg !== 'ffmpeg') {
         args.push('--ffmpeg-location', path.dirname(ffmpeg));
     }
-    await appendCookieArgs(args, url);
-    args.push(url);
+    const cookieFile = await appendCookieArgs(args, url);
+    appendProxyArgs(args);
+    args.push('--', url);
+
+    // Stopped before yt-dlp started
+    if (isCancelled && isCancelled()) {
+        cookies.removeCookieFile(cookieFile);
+        return { items: [], cancelled: true };
+    }
 
     return new Promise((resolve, reject) => {
         const proc = spawn(ytdlp, args, { env: getSpawnEnv() });
+        if (onSpawn) onSpawn(proc);
         let stderr = '';
         const items = [];
         let buffer = '';
@@ -655,18 +822,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
                 if (!trimmed) continue;
                 try {
                     const raw = JSON.parse(trimmed);
-                    const item = {
-                        id: raw.id || '',
-                        title: raw.title || raw.id || 'Untitled',
-                        url: raw.url || raw.webpage_url || '',
-                        webpage_url: raw.webpage_url || raw.url || '',
-                        duration: raw.duration || null,
-                        duration_string: raw.duration_string || null,
-                        thumbnail: raw.thumbnails?.[0]?.url || raw.thumbnail || null,
-                        uploader: raw.uploader || raw.channel || '',
-                        extractor_key: raw.ie_key || raw.extractor_key || '',
-                        _playlist_index: items.length + 1,
-                    };
+                    const item = toPlaylistItem(raw, items.length + 1);
                     items.push(item);
 
                     if (onItem) onItem(item, items.length);
@@ -691,29 +847,25 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
 
         proc.on('close', (code) => {
             clearTimeout(timer);
+            cookies.removeCookieFile(cookieFile);
             if (killed) return; // already resolved/rejected by timeout
 
             // Process any remaining buffer
             if (buffer.trim()) {
                 try {
                     const raw = JSON.parse(buffer.trim());
-                    const item = {
-                        id: raw.id || '',
-                        title: raw.title || raw.id || 'Untitled',
-                        url: raw.url || raw.webpage_url || '',
-                        webpage_url: raw.webpage_url || raw.url || '',
-                        duration: raw.duration || null,
-                        duration_string: raw.duration_string || null,
-                        thumbnail: raw.thumbnails?.[0]?.url || raw.thumbnail || null,
-                        uploader: raw.uploader || raw.channel || '',
-                        extractor_key: raw.ie_key || raw.extractor_key || '',
-                        _playlist_index: items.length + 1,
-                    };
+                    const item = toPlaylistItem(raw, items.length + 1);
                     items.push(item);
                     if (onItem) onItem(item, items.length);
                 } catch {
                     /* */
                 }
+            }
+
+            // Stopped by the user, keep what was found so far
+            if (isCancelled && isCancelled()) {
+                _log(`Fetch stopped, ${items.length} item${items.length !== 1 ? 's' : ''} found`);
+                return resolve({ items, cancelled: true });
             }
 
             if (code !== 0 && items.length === 0) {
@@ -733,6 +885,7 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
 
         proc.on('error', (err) => {
             clearTimeout(timer);
+            cookies.removeCookieFile(cookieFile);
             if (killed) return;
             logError('Playlist spawn error:', err.message);
             reject(new Error(`Cannot run yt-dlp: ${err.message}`));
@@ -744,11 +897,25 @@ async function fetchPlaylist(url, { onLog, onItem } = {}) {
 function looksLikePlaylist(url) {
     if (!url) return false;
     const u = url.toLowerCase();
+    let parsed = null;
+    try {
+        parsed = new URL(url);
+    } catch {
+        //
+    }
+    // YouTube Mix and radio lists (list=RD...) are endless, a watch link with one is a single video
+    if (parsed && /(^|\.)youtube\.com$/.test(parsed.hostname) && parsed.searchParams.get('v')) {
+        if ((parsed.searchParams.get('list') || '').startsWith('RD')) return false;
+    }
     // YouTube playlists
     if (u.includes('list=')) return true;
     if (u.includes('/playlist')) return true;
     // YouTube channel/user pages (uploads = implicit playlist)
-    if (u.includes('/channel/') || u.includes('/c/') || u.includes('/@')) {
+    if (u.includes('/channel/') || u.includes('/c/')) {
+        return true;
+    }
+    // Profile pages like /@name or /@name/videos, not posts under them (TikTok /@user/video/123, Mastodon /@user/123)
+    if (parsed && /^\/@[^/]+\/?(videos|shorts|streams|featured|playlists|releases|podcasts)?\/?$/i.test(parsed.pathname)) {
         return true;
     }
     // SoundCloud sets
@@ -769,4 +936,6 @@ module.exports = {
     looksLikePlaylist,
     buildPresets,
     download,
+    removePartialFiles,
+    setProxyUrl,
 };

@@ -80,6 +80,7 @@
             "category": "Utility"
         },
         "nsis": {
+            "artifactName": "${productName}-Setup-${version}.${ext}",
             "oneClick": true,
             "perMachine": false,
             "allowToChangeInstallationDirectory": false,
@@ -95,7 +96,7 @@
         "ffmpeg-static": "^5.2.0"
     },
     "devDependencies": {
-        "electron": "^33.0.0",
+        "electron": "^44.7.2",
         "electron-builder": "^25.0.0"
     }
 }

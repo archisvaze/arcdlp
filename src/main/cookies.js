@@ -2,39 +2,67 @@
 // Login windows, cookie extraction, Netscape cookie files for yt-dlp.
 // Added support for Instagram session.
 
-const { BrowserWindow, session } = require('electron');
+const { app, BrowserWindow, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 const { log, logError } = require('./utils');
+
+// Cookie files for yt-dlp live in a private folder inside userData, one file per run
+
+function getCookieDir() {
+    const dir = path.join(app.getPath('userData'), 'cookie-jars');
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    return dir;
+}
+
+function newCookiePath(prefix) {
+    return path.join(getCookieDir(), `${prefix}-${crypto.randomBytes(6).toString('hex')}.txt`);
+}
+
+function removeCookieFile(p) {
+    if (!p) return;
+    try {
+        fs.unlinkSync(p);
+    } catch {
+        //
+    }
+}
+
+// Removes leftover cookie files, including the shared temp files older versions wrote
+function purgeCookieFiles(prefix) {
+    try {
+        const dir = getCookieDir();
+        for (const f of fs.readdirSync(dir)) {
+            if (!prefix || f.startsWith(prefix + '-')) removeCookieFile(path.join(dir, f));
+        }
+    } catch {
+        //
+    }
+    if (!prefix || prefix === 'yt') removeCookieFile(path.join(os.tmpdir(), 'arcdlp-cookies.txt'));
+    if (!prefix || prefix === 'ig') removeCookieFile(path.join(os.tmpdir(), 'arcdlp-insta-cookies.txt'));
+}
 
 // Youtube
 
 const YT_PARTITION = 'persist:youtube-login';
 const YT_LOGIN_URL = 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https://www.youtube.com/';
 
-let ytCookiePath = null;
-
-function getYtCookiePath() {
-    if (!ytCookiePath) {
-        ytCookiePath = path.join(os.tmpdir(), 'arcdlp-cookies.txt');
-    }
-    return ytCookiePath;
-}
+// Cookies that only exist for a signed in Google account, anonymous visits get none of these
+const YT_AUTH_COOKIES = new Set(['SID', 'SAPISID', '__Secure-1PSID', '__Secure-3PSID', '__Secure-3PAPISID', 'LOGIN_INFO']);
 
 async function hasCookies() {
     const ses = session.fromPartition(YT_PARTITION);
-    const cookies = await ses.cookies.get({ domain: '.youtube.com' });
-    return cookies.length > 0;
+    const cookies = await ses.cookies.get({});
+    return cookies.some((c) => YT_AUTH_COOKIES.has(c.name) && /(^|\.)(youtube|google)\.com$/.test((c.domain || '').replace(/^\./, '')));
 }
 
 async function getCookieFile() {
     const has = await hasCookies();
     if (!has) return null;
 
-    await writeYtCookieFile();
-    const p = getYtCookiePath();
-    return fs.existsSync(p) ? p : null;
+    return writeYtCookieFile();
 }
 
 function openLoginWindow(parentWindow) {
@@ -84,12 +112,7 @@ function openLoginWindow(parentWindow) {
 async function clearCookies() {
     const ses = session.fromPartition(YT_PARTITION);
     await ses.clearStorageData();
-    const p = getYtCookiePath();
-    try {
-        fs.unlinkSync(p);
-    } catch {
-        //
-    }
+    purgeCookieFiles('yt');
     log('YouTube cookies cleared');
 }
 
@@ -113,27 +136,19 @@ async function writeYtCookieFile() {
 
     if (relevant.length === 0) {
         log('No YouTube/Google cookies found');
-        return;
+        return null;
     }
 
-    const filePath = getYtCookiePath();
+    const filePath = newCookiePath('yt');
     writeCookieLines(relevant, filePath);
     log('Wrote', relevant.length, 'YouTube cookies to', filePath);
+    return filePath;
 }
 
 // Instagram
 
 const INSTA_PARTITION = 'persist:instagram-login';
 const INSTA_LOGIN_URL = 'https://www.instagram.com/accounts/login/';
-
-let instaCookiePath = null;
-
-function getInstaCookiePath() {
-    if (!instaCookiePath) {
-        instaCookiePath = path.join(os.tmpdir(), 'arcdlp-insta-cookies.txt');
-    }
-    return instaCookiePath;
-}
 
 async function hasInstaCookies() {
     const ses = session.fromPartition(INSTA_PARTITION);
@@ -146,9 +161,7 @@ async function getInstaCookieFile() {
     const has = await hasInstaCookies();
     if (!has) return null;
 
-    await writeInstaCookieFile();
-    const p = getInstaCookiePath();
-    return fs.existsSync(p) ? p : null;
+    return writeInstaCookieFile();
 }
 
 function openInstaLoginWindow(parentWindow) {
@@ -198,12 +211,7 @@ function openInstaLoginWindow(parentWindow) {
 async function clearInstaCookies() {
     const ses = session.fromPartition(INSTA_PARTITION);
     await ses.clearStorageData();
-    const p = getInstaCookiePath();
-    try {
-        fs.unlinkSync(p);
-    } catch {
-        //
-    }
+    purgeCookieFiles('ig');
     log('Instagram cookies cleared');
 }
 
@@ -229,12 +237,13 @@ async function writeInstaCookieFile() {
 
     if (relevant.length === 0) {
         log('No Instagram cookies found');
-        return;
+        return null;
     }
 
-    const filePath = getInstaCookiePath();
+    const filePath = newCookiePath('ig');
     writeCookieLines(relevant, filePath);
     log('Wrote', relevant.length, 'Instagram cookies to', filePath);
+    return filePath;
 }
 
 // Shared
@@ -251,10 +260,13 @@ function writeCookieLines(cookies, filePath) {
         lines.push(`${domain}\t${flag}\t${pathVal}\t${secure}\t${expiry}\t${c.name}\t${c.value}`);
     }
 
-    fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
+    fs.writeFileSync(filePath, lines.join('\n'), { encoding: 'utf8', mode: 0o600 });
 }
 
 module.exports = {
+    removeCookieFile,
+    purgeCookieFiles,
+
     // YouTube
     hasCookies,
     getCookieFile,

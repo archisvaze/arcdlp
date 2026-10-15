@@ -53,6 +53,7 @@ class DownloadQueue {
                 extractAudio: item.extractAudio || false,
                 audioFormat: item.audioFormat || 'mp3',
                 videoCodec: item.videoCodec || this._videoCodec || 'auto',
+                playlistItem: item.playlistItem || null,
                 state: STATE.PENDING,
                 error: null,
                 progress: null, // { percent, speed, eta }
@@ -78,9 +79,13 @@ class DownloadQueue {
     }
 
     cancelCurrent() {
+        // An item can be downloading before yt-dlp has spawned, the flag covers that gap
+        const downloading = this._items.some((i) => i.state === STATE.DOWNLOADING);
+        if (!downloading && !this._currentProc) return;
+
+        log('Queue: cancelling current');
+        this._cancelled = true;
         if (this._currentProc) {
-            log('Queue: cancelling current');
-            this._cancelled = true;
             try {
                 this._currentProc.kill('SIGTERM');
             } catch {
@@ -227,6 +232,12 @@ class DownloadQueue {
                 nextItem.error = 'Cancelled';
                 this._emit('log', `Skipped: ${nextItem.title}`);
                 log('Queue: cancelled', nextItem.title);
+
+                // Remove partial files, again a moment later in case yt-dlp still held them
+                const { removePartialFiles } = require('./ytdlp');
+                const partials = this._currentPartials || [];
+                removePartialFiles(partials);
+                setTimeout(() => removePartialFiles(partials), 2000);
             } else {
                 nextItem.state = STATE.FAILED;
                 nextItem.error = err.message || 'Download failed';
@@ -265,9 +276,15 @@ class DownloadQueue {
             onLog: (msg) => {
                 this._emit('log', msg);
             },
+            onSpawn: (proc) => {
+                this._currentProc = proc;
+            },
+            isCancelled: () => this._cancelled,
+            partials: [],
         };
+        this._currentPartials = callbacks.partials;
 
-        const downloadPromise = ytdlp.download(
+        return ytdlp.download(
             {
                 url: item.url,
                 formatId: item.formatId,
@@ -275,20 +292,10 @@ class DownloadQueue {
                 extractAudio: item.extractAudio,
                 audioFormat: item.audioFormat,
                 videoCodec: item.videoCodec,
+                playlistItem: item.playlistItem,
             },
             callbacks,
         );
-
-        this._currentProc = callbacks._proc;
-
-        const pollInterval = setInterval(() => {
-            if (callbacks._proc) {
-                this._currentProc = callbacks._proc;
-                clearInterval(pollInterval);
-            }
-        }, 50);
-
-        return downloadPromise.finally(() => clearInterval(pollInterval));
     }
 
     _emit(type, data) {
