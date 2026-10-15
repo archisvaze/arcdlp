@@ -429,6 +429,7 @@ function cleanInfo(raw) {
         age_limit: raw.age_limit || 0,
         live_status: raw.live_status || 'not_live',
         formats,
+        chapters: raw.chapters || [],
         _fetched_at: Date.now(),
     };
 }
@@ -557,6 +558,8 @@ const STAGES = {
     FixupDuplicateMoov: 'Fixing container',
     Metadata: 'Adding metadata',
     EmbedThumbnail: 'Adding cover art',
+    EmbedChapters: 'Embedding chapters',
+    SplitChapters: 'Splitting chapters',
 };
 
 // Adds .temp before the extension, the way yt-dlp names in-progress post-processing output
@@ -587,7 +590,7 @@ function removePartialFiles(paths) {
     }
 }
 
-async function download({ url, formatId, outputDir, extractAudio, audioFormat, videoCodec, playlistItem }, callbacks) {
+async function download({ url, formatId, outputDir, extractAudio, audioFormat, videoCodec, playlistItem, embedChapters, splitChapters }, callbacks) {
     const { onProgress, onLog } = callbacks;
 
     const ytdlp = getYtdlpPath();
@@ -647,6 +650,16 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
         args.push('--playlist-items', String(playlistItem));
     }
 
+    // I keep embed/split separate - split already implies embed so only one flag.
+    if (splitChapters || embedChapters) {
+        if (ffmpeg && ffmpeg !== 'ffmpeg') {
+            if (splitChapters) args.push('--split-chapters');
+            else args.push('--embed-chapters');
+        } else {
+            onLog('Chapter options need ffmpeg, skipping them for this download.');
+        }
+    }
+
     const cookieFile = await appendCookieArgs(args, url);
     appendProxyArgs(args);
     args.push('--', url);
@@ -662,8 +675,13 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
     const partials = callbacks.partials || [];
 
     return new Promise((resolve, reject) => {
-        const proc = spawn(ytdlp, args, { env: getSpawnEnv() });
+        // I run in outputDir because --split-chapters writes relatives here, not to -o.
+        const proc = spawn(ytdlp, args, { env: getSpawnEnv(), cwd: outputDir });
         if (callbacks.onSpawn) callbacks.onSpawn(proc);
+
+        // I track the full file so I can drop it after a split succeeds.
+        let mainOutputFile = null;
+        let splitProducedChapters = false;
 
         // Parse progress from both stdout and stderr
         function parseLine(line) {
@@ -679,11 +697,20 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
 
             const trimmed = line.trim();
             const dest = trimmed.match(/^\[(download|ExtractAudio)\] Destination: (.+)$/);
-            if (dest) partials.push(dest[2]);
+            if (dest) {
+                partials.push(dest[2]);
+                mainOutputFile = dest[2];
+            }
             const thumb = trimmed.match(/^\[info\] Writing video thumbnail .* to: (.+)$/);
             if (thumb) partials.push(thumb[1]);
             const merge = trimmed.match(/^\[Merger\] Merging formats into "(.+)"$/);
-            if (merge) partials.push(tempName(merge[1]));
+            if (merge) {
+                partials.push(tempName(merge[1]));
+                mainOutputFile = merge[1];
+            }
+            if (trimmed.startsWith('[SplitChapters] Chapter') && !trimmed.includes('unavailable')) {
+                splitProducedChapters = true;
+            }
 
             const step = trimmed.match(/^\[(\w+)\]/);
             if (step && STAGES[step[1]]) {
@@ -695,6 +722,8 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
                     trimmed.startsWith('[download]') ||
                     trimmed.startsWith('[Merger]') ||
                     trimmed.startsWith('[ExtractAudio]') ||
+                    trimmed.startsWith('[EmbedChapters]') ||
+                    trimmed.startsWith('[SplitChapters]') ||
                     trimmed.startsWith('[info]') ||
                     trimmed.startsWith('Deleting')
                 ) {
@@ -726,6 +755,15 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
             }
             log('Download completed');
             onLog('Download complete ✓');
+            if (splitProducedChapters && mainOutputFile) {
+                // I drop the redundant full file, split already wrote the chapters out.
+                try {
+                    fs.unlinkSync(mainOutputFile);
+                    log('Removed full file after chapter split:', mainOutputFile);
+                } catch (e) {
+                    log('Could not remove full file after split:', e.message);
+                }
+            }
             resolve({ ok: true });
         });
 

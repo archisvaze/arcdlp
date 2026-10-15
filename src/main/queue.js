@@ -54,6 +54,8 @@ class DownloadQueue {
                 audioFormat: item.audioFormat || 'mp3',
                 videoCodec: item.videoCodec || this._videoCodec || 'auto',
                 playlistItem: item.playlistItem || null,
+                embedChapters: item.embedChapters || false,
+                splitChapters: item.splitChapters || false,
                 state: STATE.PENDING,
                 error: null,
                 progress: null, // { percent, speed, eta }
@@ -293,6 +295,8 @@ class DownloadQueue {
                 audioFormat: item.audioFormat,
                 videoCodec: item.videoCodec,
                 playlistItem: item.playlistItem,
+                embedChapters: item.embedChapters,
+                splitChapters: item.splitChapters,
             },
             callbacks,
         );
