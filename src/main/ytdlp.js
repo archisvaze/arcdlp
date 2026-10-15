@@ -558,7 +558,6 @@ const STAGES = {
     FixupDuplicateMoov: 'Fixing container',
     Metadata: 'Adding metadata',
     EmbedThumbnail: 'Adding cover art',
-    EmbedChapters: 'Embedding chapters',
     SplitChapters: 'Splitting chapters',
 };
 

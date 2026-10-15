@@ -979,6 +979,7 @@ function hidePlaylist() {
     $('plFooter').style.display = 'none';
     playlistItems = [];
     playlistSelected = new Set();
+    playlistChapters = { embed: false, split: false };
     isPlaylistMode = false;
     // Reset badge text
     const badge = document.querySelector('.playlist-badge');
@@ -1540,6 +1541,7 @@ function loadFromHistory(idx) {
     videoInfo = entry.info;
     presets = entry.presets;
     selectedPreset = null;
+    selectedChapters = { embed: false, split: false };
     isPlaylistMode = false;
     activeFetchId = null;
 

@@ -1,6 +1,6 @@
 {
     "name": "arcdlp",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "description": "Video downloader powered by yt-dlp",
     "main": "src/main/main.js",
     "author": "Archis",

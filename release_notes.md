@@ -1,4 +1,14 @@
-## What's New in v1.5.0
+## What's New in v1.5.1
+
+### 📑 Chapters
+
+- **Embed chapters** - Chapter markers are saved inside the video or audio file, so players like VLC and IINA let you jump between them
+- **Split into chapter files** - Saves each chapter as its own file, handy for albums, podcasts and courses. The full file is removed afterwards
+- The options appear on videos that have chapters, and in the playlist footer for whole batches
+
+---
+
+## Also new since v1.4.3 (from v1.5.0)
 
 ### 🔒 Security update
 
@@ -26,11 +36,11 @@
 - Reset now fully signs you out on Windows
 - Linux: the AppImage no longer needs libfuse2 and supports delta updates through AppImageUpdate, AM and AppImageLauncher
 
-Thanks to @anupamme for #32.
+Thanks to @kirakenjiro for #37 and @anupamme for #32.
 
 ### Platform Support
 
-- macOS 13 Ventura or later, Apple Silicon (.dmg)
+- macOS 13 Ventura or later, Apple Silicon (.dmg). On macOS 12, stay on v1.4.3
 - Windows 10 or later (.exe)
 - Linux x64 (.AppImage)
 
@@ -38,8 +48,8 @@ Thanks to @anupamme for #32.
 
 ### Download
 
-- macOS: `ArcDLP-1.5.0-arm64.dmg`
-- Windows: `ArcDLP-Setup-1.5.0.exe`
-- Linux: `ArcDLP-1.5.0.AppImage`
+- macOS: `ArcDLP-1.5.1-arm64.dmg`
+- Windows: `ArcDLP-Setup-1.5.1.exe`
+- Linux: `ArcDLP-1.5.1.AppImage`
 
 [Code signing policy](https://arcdlp.archisvaze.com/#code-signing)
