@@ -1,6 +1,10 @@
 let videoInfo = null;
 let presets = [];
 let selectedPreset = null;
+// I keep chapter picks per video so they reset on each fetch.
+let selectedChapters = { embed: false, split: false };
+// Same for playlist batches.
+let playlistChapters = { embed: false, split: false };
 let isFetching = false;
 let historyCache = [];
 
@@ -63,6 +67,14 @@ const $plItems = $('playlistItems');
 const $plItemCount = $('plItemCount');
 const $plFormatSelect = $('plFormatSelect');
 const $plDownloadBtn = $('plDownloadBtn');
+
+// I wire these after DOM is ready, ids are in index.html.
+const $chapterOptions = $('chapterOptions');
+const $optEmbed = $('optEmbedChapters');
+const $optSplit = $('optSplitChapters');
+const $plChapterOptions = $('plChapterOptions');
+const $plOptEmbed = $('plOptEmbedChapters');
+const $plOptSplit = $('plOptSplitChapters');
 
 // Queue
 const $queueToolbar = $('queueToolbar');
@@ -437,6 +449,7 @@ function selectFetchItem(id) {
     videoInfo = item.info;
     presets = item.presets;
     selectedPreset = null;
+    selectedChapters = { embed: false, split: false };
     isPlaylistMode = false;
 
     hideError();
@@ -455,6 +468,7 @@ function showPostItems(items) {
     isPlaylistMode = true;
     playlistItems = [];
     playlistSelected = new Set();
+    playlistChapters = { embed: false, split: false };
     $plItems.innerHTML = '';
     showPlaylist();
 
@@ -780,6 +794,50 @@ function showCard() {
     $dlBtn.textContent = 'Add to Queue';
 
     $card.classList.add('visible');
+    updateChapterOptions();
+}
+
+// I only show chapters when the video actually has them. Split implies embed.
+function updateChapterOptions() {
+    if (!$chapterOptions) return;
+    const hasChapters = Array.isArray(videoInfo?.chapters) && videoInfo.chapters.length > 0;
+    $chapterOptions.style.display = hasChapters ? '' : 'none';
+    if (!$optEmbed || !$optSplit) return;
+    $optEmbed.checked = selectedChapters.embed || selectedChapters.split;
+    $optEmbed.disabled = selectedChapters.split;
+    $optSplit.checked = selectedChapters.split;
+}
+
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        $('optEmbedChapters')?.addEventListener('change', (e) => {
+            selectedChapters.embed = e.target.checked;
+            updateChapterOptions();
+        });
+        $('optSplitChapters')?.addEventListener('change', (e) => {
+            selectedChapters.split = e.target.checked;
+            updateChapterOptions();
+        });
+        $('plOptEmbedChapters')?.addEventListener('change', (e) => {
+            playlistChapters.embed = e.target.checked;
+            updatePlChapterOptions();
+        });
+        $('plOptSplitChapters')?.addEventListener('change', (e) => {
+            playlistChapters.split = e.target.checked;
+            updatePlChapterOptions();
+        });
+        $plFormatSelect?.addEventListener('change', updatePlChapterOptions);
+    });
+}
+
+// Same toggles for playlist batches, applies to each picked item.
+function updatePlChapterOptions() {
+    if (!$plChapterOptions) return;
+    $plChapterOptions.style.display = '';
+    if (!$plOptEmbed || !$plOptSplit) return;
+    $plOptEmbed.checked = playlistChapters.embed || playlistChapters.split;
+    $plOptEmbed.disabled = playlistChapters.split;
+    $plOptSplit.checked = playlistChapters.split;
 }
 
 function formatNumber(n) {
@@ -853,6 +911,8 @@ async function doDownload() {
                 formatId: selectedPreset.formatId,
                 extractAudio: isAudio,
                 audioFormat: isAudio ? selectedPreset.audioFormat || 'mp3' : undefined,
+                embedChapters: selectedChapters.embed,
+                splitChapters: selectedChapters.split,
             },
         ]);
 
@@ -911,6 +971,7 @@ function showPlaylist() {
 
 function showPlaylistFooter() {
     $('plFooter').style.display = '';
+    updatePlChapterOptions();
 }
 
 function hidePlaylist() {
@@ -998,6 +1059,8 @@ async function doPlaylistDownload() {
             extractAudio: isAudio,
             audioFormat: isAudio ? opt.dataset.format || 'mp3' : undefined,
             playlistItem: item.playlistItem || undefined,
+            embedChapters: playlistChapters.embed,
+            splitChapters: playlistChapters.split,
         }));
 
         await window.api.queueAdd(queueItems);
