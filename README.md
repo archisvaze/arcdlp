@@ -59,6 +59,13 @@ To fix it:
 
 You only need to do this once.
 
+If macOS instead says ArcDLP "is damaged and can't be opened", open Terminal,
+run this, then open ArcDLP again:
+
+```bash
+xattr -cr /Applications/ArcDLP.app
+```
+
 ### Windows
 
 1. Download and run the `.exe` installer

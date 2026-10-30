@@ -33,5 +33,24 @@ exports.default = async function (context) {
                 }
             }
         }
+
+        // Ad-hoc sign the whole app here. electron-builder 25 can't ad-hoc sign (mac.identity is
+        // null in package.json) and skips afterSign when it didn't sign, so afterPack is the last
+        // hook that runs before the dmg/zip are made. Without this the app keeps Electron's stub
+        // signature and downloaded copies are reported as "damaged" by macOS.
+        // Signed inside out: bundled tools first, then the app. Any failure stops the build.
+        const appPath = path.join(context.appOutDir, 'ArcDLP.app');
+        const helpers = [
+            ...binaries,
+            path.join(resDir, 'app.asar.unpacked', 'node_modules', 'ffmpeg-static', 'ffmpeg'),
+        ].filter((bin) => fs.existsSync(bin));
+
+        execFileSync('xattr', ['-cr', appPath]);
+        for (const bin of helpers) {
+            execFileSync('codesign', ['--force', '--sign', '-', bin], { stdio: 'inherit' });
+        }
+        execFileSync('codesign', ['--force', '--deep', '--sign', '-', appPath], { stdio: 'inherit' });
+        execFileSync('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath], { stdio: 'inherit' });
+        console.log('Ad-hoc signed ArcDLP.app');
     }
 };
