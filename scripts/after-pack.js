@@ -1,3 +1,7 @@
+// electron-builder afterPack hook (package.json build.afterPack), runs for every platform.
+// Gives ffmpeg its .exe on Windows, stops the build if a bundled tool is missing,
+// and ad-hoc signs the Mac app.
+
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -15,8 +19,8 @@ exports.default = async function (context) {
         }
     }
 
-    // Stop the build if a bundled tool is missing. The app uses these copies in Resources, and
-    // ffmpeg is no longer duplicated inside app.asar.unpacked, so there is no fallback copy.
+    // The app only uses the copies in Resources (package.json keeps ffmpeg out of
+    // app.asar.unpacked), so a missing tool here means a release that can't download.
     const exe = platform === 'win32' ? '.exe' : '';
     const required = [
         path.join(resDir, 'bin', 'yt-dlp' + exe),
@@ -51,7 +55,7 @@ exports.default = async function (context) {
 
         // Ad-hoc sign the whole app here. electron-builder 25 can't ad-hoc sign (mac.identity is
         // null in package.json) and skips afterSign when it didn't sign, so afterPack is the last
-        // hook that runs before the dmg/zip are made. Without this the app keeps Electron's stub
+        // hook that runs before the dmg is made. Without this the app keeps Electron's stub
         // signature and downloaded copies are reported as "damaged" by macOS.
         // Signed inside out: bundled tools first, then the app. Any failure stops the build.
         const appPath = path.join(context.appOutDir, 'ArcDLP.app');

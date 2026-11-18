@@ -128,9 +128,11 @@ AppImageUpdate, AM and AppImageLauncher.
   and keep what loaded
 - **Plays everywhere** - MP4 downloads get AAC audio, so they play in QuickTime,
   Windows Media Player and every video editor
-- **Drag and drop** - Drop a link onto the window, or use the Paste button
+- **Drag and drop** - Drop a link onto the window, press Ctrl+V / Cmd+V on the
+  Download tab, or use the Paste button
 - **Instagram saved collections** - Paste a saved collection URL, the app scrapes
-  all post links from the collection page, and queues them for download
+  all post links from the collection page, and lists them so you can pick which
+  to download
 - **Download queue** - Sequential processing with per-item progress (including
   the merging and converting steps), retry, cancel, and remove. Cancelling
   cleans up partial files. One failure never stops the rest
@@ -285,8 +287,8 @@ principles the project follows:
 #### Getting Started
 
 1. Fork and clone the repo
-2. `npm install` (downloads yt-dlp, ffmpeg and Deno automatically) - See details below
-   for Windows and Linux install
+2. `npm install` (downloads yt-dlp, ffmpeg and Deno automatically) - See below if you
+   build for a different platform
 3. `npm run dev` to launch with DevTools - See more details below
 4. Make your changes, test across a few different sites
 5. Open a PR with a clear description of what changed and why
@@ -301,18 +303,19 @@ npm install
 
 #### Cross-platform builds
 
-Both `ffmpeg-static` and the yt-dlp postinstall script download platform-specific
-binaries during `npm install`. On macOS, this works automatically, no setup needed.
+`npm install` downloads yt-dlp and Deno (postinstall script) and ffmpeg
+(`ffmpeg-static`) for the machine you run it on, so building for that same
+machine needs no setup.
 
-If you're building for a different architecture (e.g. building the Linux x64
-AppImage from an ARM machine), set these environment variables **before**
-`npm install` to ensure the correct binaries are downloaded:
+If you're building for a different platform or architecture (e.g. building the
+Linux x64 AppImage from an ARM machine), set these environment variables
+**before** `npm install` to ensure the correct binaries are downloaded:
 
-**Windows (x64):**
+**Windows (x64), in PowerShell:**
 
     $env:npm_config_platform = "win32"
     $env:npm_config_arch = "x64"
-    rm -r -Force node_modules
+    rm -r -Force node_modules, bin
     npm install
 
 **Linux (x64):**
@@ -322,9 +325,9 @@ AppImage from an ARM machine), set these environment variables **before**
     rm -rf node_modules bin
     npm install
 
-Only one binary per platform is downloaded per install. If you need to switch
-target architectures, delete `node_modules` and `bin` and run `npm install`
-again with the new env vars.
+`bin/` and `node_modules` only ever hold one platform's binaries. To switch
+target platform or architecture, delete both and run `npm install` again with
+the new env vars.
 
 ### Development
 
@@ -338,19 +341,20 @@ This launches the app with DevTools enabled and verbose logging.
 ### Production Builds
 
 ```bash
-npm run build:mac      # macOS - produces .dmg and .zip
+npm run build:mac      # macOS - produces .dmg
 npm run build:win      # Windows - produces NSIS installer
 npm run build:linux    # Linux - produces AppImage
-npm run build:all      # All platforms
 ```
 
 yt-dlp, Deno and ffmpeg are bundled into the built app via `extraResources` in
-package.json. The build stops if any of them is missing for the target platform.
+package.json. The build stops if any of them is missing for the target platform,
+so each build needs an `npm install` for that platform first (see
+[Cross-platform builds](#cross-platform-builds)).
 
 Official releases are built by GitHub Actions (`.github/workflows/release.yml`).
 Pushing a `v*` tag builds the Windows installer, the Linux AppImage and the
 macOS dmg (Apple Silicon) and attaches them to a draft release. The macOS app is
-ad-hoc signed in `scripts/fix-ffmpeg-win.js`, and the workflow opens the dmg and
+ad-hoc signed in `scripts/after-pack.js`, and the workflow opens the dmg and
 checks the signature and the bundled tools before uploading it.
 
 ### Project Structure
@@ -374,7 +378,7 @@ arcdlp/
 │       └── index.css         # All styles
 ├── scripts/
 │   ├── postinstall.js        # Downloads yt-dlp + Deno on npm install (checksum verified)
-│   └── fix-ffmpeg-win.js     # afterPack: renames ffmpeg on Windows, checks bundled tools, ad-hoc signs the Mac app
+│   └── after-pack.js         # afterPack hook: names ffmpeg on Windows, checks bundled tools, ad-hoc signs the Mac app
 ├── .github/workflows/
 │   └── release.yml           # Builds Windows, Linux and macOS releases
 ├── bin/                      # yt-dlp + Deno binaries (auto-populated by postinstall)
@@ -472,8 +476,9 @@ great contributions:
 - **Keyboard shortcuts** - Quick access to common actions
 - **More site-specific auth** - Expand the cookie login flow to more sites
   beyond YouTube and Instagram
-- **Playlist detection for more sites** - Currently conservative (YouTube,
-  SoundCloud, and Instagram saved collections)
+- **Playlist detection for more sites** - Currently conservative (YouTube
+  playlists and channels, `@name` profile pages, SoundCloud sets, albums and
+  Instagram saved collections)
 - **DOM virtualization for large playlists** - Currently renders all items,
   works fine under ~1000
 - **Show in folder** - Reveal each finished download in Finder or Explorer

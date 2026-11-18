@@ -1,5 +1,5 @@
-// Instagram Collection Scraper
-// Opens a saved-collection URL in a hidden BrowserWindow and scrolls to load all items and returns individual post URLs.
+// yt-dlp can't list Instagram saved collections, so this opens the collection in a hidden
+// window with the user's Instagram session, scrolls it and collects the post links.
 
 const { BrowserWindow } = require('electron');
 const { log, logError } = require('./utils');
@@ -55,7 +55,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
             reject(err);
         }
 
-        // Increased timeout to 4 mins
+        // 4 minute limit, posts found by then are kept
         const timer = setTimeout(() => {
             if (items.length > 0) {
                 _log(`Scraping timed out after ${items.length} posts`);
@@ -68,11 +68,11 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
         win.webContents.on('did-finish-load', () => {
             _log('Page loaded, scanning for posts...');
 
-            // Testing small delay for content to load
+            // Let the grid render before the first scan
             setTimeout(() => scrollAndCollect(), 2500);
         });
 
-        // Detect login redirect
+        // A missing or expired session redirects to the login page
         win.webContents.on('did-navigate', (_e, navUrl) => {
             if (navUrl.includes('/accounts/login')) {
                 fail(new Error('Instagram login required. Sign in via Settings first.'));
@@ -96,7 +96,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
 
             let stableRounds = 0;
             const MAX_STABLE = 5;
-            const MAX_SCROLLS = 300; // Not scroll past this
+            const MAX_SCROLLS = 300;
 
             for (let i = 0; i < MAX_SCROLLS; i++) {
                 if (resolved) return;
@@ -122,8 +122,7 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
                         })()
                     `);
 
-                    // Process new links
-                    // Track all URLs in seen which include photos so scroll detection stays accurate
+                    // Photos count as new content too, so a stretch of photo posts doesn't end the scroll early
                     let newCount = 0;
                     for (const entry of links) {
                         if (seen.has(entry.url)) continue;
@@ -166,21 +165,20 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
                         stableRounds++;
                     }
 
-                    // End detection: no new posts for several rounds
+                    // Reached the end once several scrolls in a row load nothing new
                     if (stableRounds >= MAX_STABLE) {
                         log('Scraper: no new posts after', MAX_STABLE, 'scrolls, finishing');
                         break;
                     }
 
-                    // Scroll down
                     await win.webContents.executeJavaScript(`
                         window.scrollTo(0, document.body.scrollHeight);
                     `);
 
-                    // Wait for new content to load. TEST worst case
+                    // Give Instagram time to load the next batch
                     await delay(1500);
                 } catch (err) {
-                    // Window was closed?
+                    // Usually the window was closed by Stop or the timeout
                     if (!resolved) {
                         logError('Scraper scroll error:', err.message);
                     }
@@ -188,7 +186,6 @@ function scrapeCollection(url, parent, { onLog, onItem } = {}) {
                 }
             }
 
-            // Done scrolling
             if (!resolved) done();
         }
 
@@ -206,7 +203,6 @@ function delay(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
 
-// Check if a URL is like an Instagram saved collection.
 function isInstagramCollection(url) {
     if (!url) return false;
     try {

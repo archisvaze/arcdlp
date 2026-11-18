@@ -1,10 +1,10 @@
-// Download Queue
-// Sequential queue with per-item state, retry, and resilience.
-// One failure never kills the rest.
+// Downloads run one at a time. A failed or cancelled item never stops the rest.
 
+const path = require('path');
+const fs = require('fs');
+const ytdlp = require('./ytdlp');
 const { log, logError } = require('./utils');
 
-// Item states
 const STATE = {
     PENDING: 'pending',
     DOWNLOADING: 'downloading',
@@ -17,30 +17,27 @@ class DownloadQueue {
         this._items = [];
         this._isProcessing = false;
         this._aborted = false; // "cancel all" flag
-        this._callbacks = null; // onProgress, onLog, onItemUpdate, onQueueUpdate
-        this._currentProc = null; // ref to kill on cancel
+        this._callbacks = null; // onLog, onItemUpdate, onQueueUpdate, onItemComplete
+        this._currentProc = null; // yt-dlp process of the current item, killed on cancel
         this._idCounter = 0;
         this._downloadPath = null;
         this._videoCodec = 'auto';
     }
 
-    // Register callbacks (call once from main.js)
     setCallbacks(cbs) {
         this._callbacks = cbs;
     }
 
-    // Set download path (call from main.js, and whenever it changes)
     setDownloadPath(p) {
         this._downloadPath = p;
     }
 
-    // Set the preferred video codec (call from main.js).
-    // Items snapshot this when added, so changing it mid-queue only affects new items.
+    // Items keep the codec they were added with, so a change mid-queue only affects new items
     setVideoCodec(c) {
         this._videoCodec = c || 'auto';
     }
 
-    // Add one or more items to the queue. Each item: { url, title, formatId extractAudio, audioFormat, thumbnail, videoCodec }
+    // items: [{ url, title, thumbnail, formatId, extractAudio, audioFormat, videoCodec, playlistItem, embedChapters, splitChapters }]
     add(items) {
         const added = [];
         for (const item of items) {
@@ -58,7 +55,7 @@ class DownloadQueue {
                 splitChapters: item.splitChapters || false,
                 state: STATE.PENDING,
                 error: null,
-                progress: null, // { percent, speed, eta }
+                progress: null, // { percent, speed, eta, stage }
                 addedAt: Date.now(),
             };
             this._items.push(qItem);
@@ -68,7 +65,6 @@ class DownloadQueue {
 
         this._emitQueueUpdate();
 
-        // Auto-start if not already processing
         if (!this._isProcessing) {
             this._processNext();
         }
@@ -99,10 +95,8 @@ class DownloadQueue {
 
     cancelAll() {
         log('Queue: cancel all');
-        this._aborted = true;
         this.cancelCurrent();
 
-        // Mark pending items as failed
         for (const item of this._items) {
             if (item.state === STATE.PENDING) {
                 item.state = STATE.FAILED;
@@ -110,7 +104,9 @@ class DownloadQueue {
             }
         }
 
-        this._isProcessing = false;
+        // Stay active until the cancelled yt-dlp has exited, so an item added or retried in the
+        // meantime can't start a second download beside it. _processNext ends the run from there.
+        if (this._isProcessing) this._aborted = true;
         this._emitQueueUpdate();
     }
 
@@ -149,7 +145,6 @@ class DownloadQueue {
 
     clearCompleted() {
         this._items = this._items.filter((i) => i.state === STATE.PENDING || i.state === STATE.DOWNLOADING);
-        // Reset id counter if queue is empty
         if (this._items.length === 0) this._idCounter = 0;
         this._emitQueueUpdate();
     }
@@ -193,13 +188,16 @@ class DownloadQueue {
     // Internal
 
     async _processNext() {
+        // After Cancel all, stop quietly unless something was added after the cancel
         if (this._aborted) {
             this._aborted = false;
-            this._isProcessing = false;
-            return;
+            if (!this._items.some((i) => i.state === STATE.PENDING)) {
+                this._isProcessing = false;
+                this._emitQueueUpdate();
+                return;
+            }
         }
 
-        // Find next pending item
         const nextItem = this._items.find((i) => i.state === STATE.PENDING);
         if (!nextItem) {
             this._isProcessing = false;
@@ -236,10 +234,9 @@ class DownloadQueue {
                 log('Queue: cancelled', nextItem.title);
 
                 // Remove partial files, again a moment later in case yt-dlp still held them
-                const { removePartialFiles } = require('./ytdlp');
                 const partials = this._currentPartials || [];
-                removePartialFiles(partials);
-                setTimeout(() => removePartialFiles(partials), 2000);
+                ytdlp.removePartialFiles(partials);
+                setTimeout(() => ytdlp.removePartialFiles(partials), 2000);
             } else {
                 nextItem.state = STATE.FAILED;
                 nextItem.error = err.message || 'Download failed';
@@ -253,19 +250,12 @@ class DownloadQueue {
         this._emitItemUpdate(nextItem);
         this._emitQueueUpdate();
 
-        // Continue to next, always, even after failure
-        // Use setTimeout to avoid stack buildup on large queues
+        // Always move on to the next item, even after a failure
         setTimeout(() => this._processNext(), 0);
     }
 
     _downloadOne(item) {
-        // Lazy-require to avoid circular deps
-        const ytdlp = require('./ytdlp');
-        const path = require('path');
-        const fs = require('fs');
-
-        // Get download path from the store passed during callback setup
-        const downloadPath = this._downloadPath || require('path').join(require('electron').app.getPath('downloads'), 'ArcDLP');
+        const downloadPath = this._downloadPath || path.join(require('electron').app.getPath('downloads'), 'ArcDLP');
         if (!fs.existsSync(downloadPath)) {
             fs.mkdirSync(downloadPath, { recursive: true });
         }

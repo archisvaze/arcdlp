@@ -1,8 +1,8 @@
 name: Release builds
 
 # Builds the Windows installer, Linux AppImage and macOS dmg (Apple Silicon) on GitHub-hosted runners.
-# Pushing a v* tag also creates a draft release with all three files.
-# macOS is ad-hoc signed by scripts/fix-ffmpeg-win.js (afterPack), the same as a local build.
+# Pushing a v* tag also creates a draft release with all three files, using release_notes.md as the body.
+# The Mac app is ad-hoc signed by the afterPack hook (scripts/after-pack.js). It is not notarized.
 # Windows signing runs once the SIGNPATH_ORGANIZATION_ID variable and SIGNPATH_API_TOKEN secret exist.
 
 on:
@@ -88,9 +88,8 @@ jobs:
           chmod +x "$APPIMAGE"
           ./"$APPIMAGE" --appimage-extract > /dev/null
           rm "$APPIMAGE"
-          # The extracted folders are mode 0700 (owner only). appimagetool now refuses to package
-          # that, since other users would get "Permission denied". Make folders and programs
-          # readable and openable by everyone (X never makes a regular file executable).
+          # The extracted tree is mode 0700 and appimagetool refuses to package that.
+          # a+rX opens it up for all users without marking plain files executable.
           chmod -R a+rX squashfs-root
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage

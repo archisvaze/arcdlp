@@ -7,15 +7,20 @@
 - **Update banner**: it now sits at the bottom of the window with a clear Download update button, instead of covering the tabs
 - **Clearer messages**: if a built-in tool is missing, the app now tells you to reinstall ArcDLP instead of showing developer instructions
 - **About tab**: now lists every format ArcDLP saves (MP4, WebM, MP3, M4A, Opus) and explains exactly what the app connects to, with a link to the privacy policy
+- **Paste with Ctrl+V / Cmd+V**: on the Download tab the shortcut now fills in the link box even if you haven't clicked into it first
+- **Cleaner log**: fetching a video no longer repeats the same lines over and over
 
 ### 🐛 Fixes
 
 - macOS: if you close the window while downloads are running and reopen it from the Dock, the Queue tab now shows your downloads again instead of looking empty
+- Cancel all: a download you added or retried right after pressing Cancel all could start while the cancelled one was still stopping. Now it waits its turn, and the cancelled download is always marked Cancelled with its unfinished files cleaned up
+- Open folder now works before your first download. It used to do nothing until the download folder existed
 
 ### 🛠 Behind the scenes
 
 - The Mac app is now built by GitHub Actions, like Windows and Linux. Every build is checked automatically before it's uploaded (signature, plus yt-dlp, Deno and ffmpeg all start), so a broken Mac download like the first 1.5.1 upload can't slip through again
 - A build now stops if yt-dlp, Deno or ffmpeg is missing, instead of shipping an app that can't download
+- Building from source: building for another platform now gets the right yt-dlp, and a dropped connection during `npm install` no longer hangs it or leaves a broken yt-dlp behind
 
 ### Platform Support
 

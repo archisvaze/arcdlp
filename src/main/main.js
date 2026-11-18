@@ -1,5 +1,4 @@
-// Main Process
-// Electron entry point. Window, IPC, app lifecycle.
+// Main process: the window, every IPC handler, history and app lifecycle.
 
 const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
 const path = require('path');
@@ -92,7 +91,7 @@ function createWindow() {
         if (DEV_MODE) mainWindow.webContents.openDevTools({ mode: 'detach' });
         log('Window ready');
 
-        // Check for updates after a 3 sec
+        // Check for updates a few seconds after launch
         setTimeout(async () => {
             try {
                 const result = await updater.checkForUpdates(app.getVersion());
@@ -118,7 +117,7 @@ app.whenReady().then(() => {
     ytdlp.setProxyUrl(store.get('proxyUrl'));
     createWindow();
 
-    // Fetch dependency versions in the background
+    // Cached so Settings opens without waiting on three --version calls
     ytdlp
         .getVersions()
         .then((v) => {
@@ -129,13 +128,12 @@ app.whenReady().then(() => {
             logError('Version fetch failed:', err.message);
         });
 
-    // Wire queue callbacks to renderer
     queue.setCallbacks({
         onLog: (msg) => send('log', msg),
         onItemUpdate: (item) => send('queue:itemUpdate', item),
         onQueueUpdate: (data) => send('queue:update', data),
         onItemComplete: (item) => {
-            // Add completed downloads to history, skip if already there
+            // Playlist, post and collection items were never fetched one by one, so they reach History here
             const history = store.get('history') || [];
             const alreadyExists = history.some((h) => h.info.webpage_url === item.url);
             if (!alreadyExists) {
@@ -176,7 +174,6 @@ function addToHistory(info, presets) {
     const history = store.get('history') || [];
     const key = `${info.extractor_key}:${info.id}`;
 
-    // Remove existing entry for same video
     const filtered = history.filter((h) => `${h.info.extractor_key}:${h.info.id}` !== key);
 
     // History never uses these and they make every save large
@@ -303,7 +300,14 @@ handle('settings:setVideoCodec', (_e, codec) => {
 });
 
 handle('settings:openFolder', () => {
-    shell.openPath(store.get('downloadPath'));
+    // The folder is only created by the first download, so make it here or Open does nothing
+    const dir = store.get('downloadPath');
+    try {
+        fs.mkdirSync(dir, { recursive: true });
+    } catch {
+        //
+    }
+    shell.openPath(dir);
 });
 
 handle('settings:getProxy', () => store.get('proxyUrl') || '');
@@ -350,7 +354,7 @@ handle('app:checkForUpdates', async () => {
     return result;
 });
 
-// Auth
+// YouTube sign-in
 
 handle('auth:check', () => cookies.hasCookies());
 
@@ -375,7 +379,7 @@ handle('auth:logout', async () => {
     return true;
 });
 
-// Instagram Auth
+// Instagram sign-in
 
 handle('insta:check', () => cookies.hasInstaCookies());
 
@@ -400,7 +404,7 @@ handle('insta:logout', async () => {
     return true;
 });
 
-// Instagram Collection Scraper
+// Instagram saved collections
 
 handle('scraper:collection', async (_e, url) => {
     if (!scraper.isInstagramCollection(url)) throw new Error('Not an Instagram saved collection URL');
@@ -529,7 +533,7 @@ handle('app:reset', async () => {
         await session.defaultSession.clearStorageData().catch(() => {});
         store.clear();
 
-        // Relaunch AFTER cleanup
+        // Short delay so the reply reaches the renderer before the folder goes and the app restarts
         setTimeout(() => {
             try {
                 fs.rmSync(userDataPath, { recursive: true, force: true });

@@ -1009,16 +1009,6 @@ button {
     border-color: var(--accent);
 }
 
-.settings-placeholder {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text-3);
-    font-size: 13px;
-    background: var(--card);
-    border: 1px dashed var(--card-border);
-    border-radius: var(--radius);
-}
-
 .settings-dep-status {
     display: flex;
     align-items: center;

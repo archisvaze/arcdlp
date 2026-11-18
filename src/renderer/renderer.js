@@ -1,9 +1,9 @@
 let videoInfo = null;
 let presets = [];
 let selectedPreset = null;
-// I keep chapter picks per video so they reset on each fetch.
+// Chapter options for the video on screen, reset on every fetch
 let selectedChapters = { embed: false, split: false };
-// Same for playlist batches.
+// Chapter options for a playlist batch
 let playlistChapters = { embed: false, split: false };
 let isFetching = false;
 let historyCache = [];
@@ -68,7 +68,7 @@ const $plItemCount = $('plItemCount');
 const $plFormatSelect = $('plFormatSelect');
 const $plDownloadBtn = $('plDownloadBtn');
 
-// I wire these after DOM is ready, ids are in index.html.
+// Chapter options
 const $chapterOptions = $('chapterOptions');
 const $optEmbed = $('optEmbedChapters');
 const $optSplit = $('optSplitChapters');
@@ -228,6 +228,16 @@ document.addEventListener('drop', (e) => {
     doFetch();
 });
 
+// Ctrl+V / Cmd+V on the Download tab fills the URL box even when it isn't focused, like the
+// Paste button. Text fields keep their normal paste.
+document.addEventListener('paste', (e) => {
+    if (!$('tab-download').classList.contains('active') || $('thanksDialog').open) return;
+    const focused = document.activeElement;
+    if (focused && (focused.matches('input:not([type="checkbox"]), textarea') || focused.isContentEditable)) return;
+    e.preventDefault();
+    useClipboardText(e.clipboardData.getData('text/plain'));
+});
+
 // The Fetch button turns into Stop while a playlist or collection is loading
 function onFetchBtn() {
     if (isFetching) stopFetch();
@@ -308,8 +318,7 @@ async function doFetch() {
         return;
     }
 
-    // Single video add to fetch queue
-    // Prevent duplicate URLs already in the queue and still fetching
+    // Single videos go through the fetch panel, skip a URL that's already being fetched
     const alreadyQueued = fetchQueue.find((item) => item.url === url && item.status === 'fetching');
     if (alreadyQueued) {
         showToast('Already fetching this URL');
@@ -435,7 +444,6 @@ async function processFetchQueue() {
 
     isFetchProcessing = false;
 
-    // Process next item in queue
     const hasMore = fetchQueue.find((item) => item.status === 'fetching');
     if (hasMore) {
         processFetchQueue();
@@ -585,7 +593,6 @@ function renderFetchPanel() {
         })
         .join('');
 
-    // Attach click listeners
     $fetchPanelItems.querySelectorAll('.fp-item').forEach((el) => {
         el.addEventListener('click', (e) => {
             if (e.target.closest('[data-action]')) return;
@@ -639,20 +646,26 @@ function doClear() {
     $url.focus();
 }
 
+// Shared by the Paste button and Ctrl+V. Fills the URL box only, fetching stays a click.
+function useClipboardText(text) {
+    const url = (text || '').trim();
+    if (!url) return;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        showError('Please enter a valid URL starting with http:// or https://');
+        return;
+    }
+    hideError();
+    $url.value = url;
+    $url.focus();
+}
+
 function doPaste() {
-    navigator.clipboard.readText().then((text) => {
-        const url = text.trim();
-        if (!url) return;
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            showError('Please enter a valid URL starting with http:// or https://');
-            return;
-        }
-        hideError();
-        $url.value = url;
-        $url.focus();
-    }).catch((err) => {
-        showError('Failed to read clipboard: ' + err.message);
-    });
+    navigator.clipboard
+        .readText()
+        .then(useClipboardText)
+        .catch((err) => {
+            showError('Failed to read clipboard: ' + err.message);
+        });
 }
 
 function showClearBtn() {
@@ -686,7 +699,6 @@ async function fetchPlaylist(url) {
 }
 
 async function fetchInstaCollection(url) {
-    // Check Instagram auth first
     const instaAuth = await window.api.checkInstaAuth();
     if (!instaAuth) {
         throw new Error('Instagram login required. Sign in via Settings first.');
@@ -699,7 +711,6 @@ async function fetchInstaCollection(url) {
 
     showPlaylist();
 
-    // Update badge to say COLLECTION instead of PLAYLIST
     const badge = document.querySelector('.playlist-badge');
     if (badge) badge.textContent = 'COLLECTION';
 
@@ -798,7 +809,7 @@ function showCard() {
     updateChapterOptions();
 }
 
-// I only show chapters when the video actually has them. Split implies embed.
+// Shown only when the video has chapters. Split takes over from Embed, so Embed is locked while Split is on.
 function updateChapterOptions() {
     if (!$chapterOptions) return;
     const hasChapters = Array.isArray(videoInfo?.chapters) && videoInfo.chapters.length > 0;
@@ -809,29 +820,24 @@ function updateChapterOptions() {
     $optSplit.checked = selectedChapters.split;
 }
 
-if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', () => {
-        $('optEmbedChapters')?.addEventListener('change', (e) => {
-            selectedChapters.embed = e.target.checked;
-            updateChapterOptions();
-        });
-        $('optSplitChapters')?.addEventListener('change', (e) => {
-            selectedChapters.split = e.target.checked;
-            updateChapterOptions();
-        });
-        $('plOptEmbedChapters')?.addEventListener('change', (e) => {
-            playlistChapters.embed = e.target.checked;
-            updatePlChapterOptions();
-        });
-        $('plOptSplitChapters')?.addEventListener('change', (e) => {
-            playlistChapters.split = e.target.checked;
-            updatePlChapterOptions();
-        });
-        $plFormatSelect?.addEventListener('change', updatePlChapterOptions);
-    });
-}
+$optEmbed.addEventListener('change', (e) => {
+    selectedChapters.embed = e.target.checked;
+    updateChapterOptions();
+});
+$optSplit.addEventListener('change', (e) => {
+    selectedChapters.split = e.target.checked;
+    updateChapterOptions();
+});
+$plOptEmbed.addEventListener('change', (e) => {
+    playlistChapters.embed = e.target.checked;
+    updatePlChapterOptions();
+});
+$plOptSplit.addEventListener('change', (e) => {
+    playlistChapters.split = e.target.checked;
+    updatePlChapterOptions();
+});
 
-// Same toggles for playlist batches, applies to each picked item.
+// Playlist items aren't fetched one by one, so chapters aren't known up front and the options always show
 function updatePlChapterOptions() {
     if (!$plChapterOptions) return;
     $plChapterOptions.style.display = '';
@@ -982,7 +988,6 @@ function hidePlaylist() {
     playlistSelected = new Set();
     playlistChapters = { embed: false, split: false };
     isPlaylistMode = false;
-    // Reset badge text
     const badge = document.querySelector('.playlist-badge');
     if (badge) badge.textContent = 'PLAYLIST';
 }
@@ -1111,7 +1116,6 @@ function renderQueue() {
     $queueEmpty.style.display = 'none';
     $queueToolbar.style.display = 'flex';
 
-    // Status text
     const statusParts = [];
     if (counts.downloading > 0) {
         statusParts.push(`${counts.downloading} downloading`);
@@ -1121,12 +1125,10 @@ function renderQueue() {
     if (counts.failed > 0) statusParts.push(`${counts.failed} failed`);
     $queueStatus.textContent = statusParts.join(' · ') || '0 items';
 
-    // Show/hide action buttons
     $qCancelAllBtn.style.display = isActive ? 'inline-block' : 'none';
     $qRetryFailedBtn.style.display = counts.failed > 0 ? 'inline-block' : 'none';
     $qClearDoneBtn.style.display = counts.completed > 0 || (counts.failed > 0 && !isActive) ? 'inline-block' : 'none';
 
-    // Render items
     $queueItems.innerHTML = items.map((item) => queueItemHTML(item)).join('');
     attachQueueListeners();
 }
@@ -1736,8 +1738,12 @@ function renderAboutUpdate() {
         el.innerHTML =
             `<div class="about-update-available">` +
             `<span>v${escapeHtml(updateInfo.latest)} is available</span>` +
-            `<a href="#" onclick="openExternal('${escapeHtml(updateInfo.url)}'); return false;">View release</a>` +
+            `<a href="#">View release</a>` +
             `</div>`;
+        el.querySelector('a').addEventListener('click', (e) => {
+            e.preventDefault();
+            openExternal(updateInfo.url);
+        });
     } else if (updateInfo && !updateInfo.hasUpdate && !updateInfo.error) {
         el.textContent = "You're on the latest version";
     } else {

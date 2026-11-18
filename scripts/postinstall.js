@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 
-// Download yt-dlp + Deno binaries
-//
-// Runs automatically after `npm install`.
-// Downloads the correct binaries for the current platform/arch into bin/.
-
+// Runs after `npm install`. Downloads yt-dlp and Deno into bin/ for the target platform:
+// npm_config_platform / npm_config_arch when set, otherwise this machine.
 // Set YTDLP_VERSION or DENO_VERSION to a release tag to pin a version, otherwise the latest is used.
-// Every download is checked against the SHA-256 sums the project publishes.
+// Downloads are checked against the SHA-256 sums each project publishes.
 
 const https = require('https');
 const http = require('http');
@@ -31,7 +28,8 @@ function getYtdlpBinaryName() {
 }
 
 function getYtdlpOutputName() {
-    return process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+    const platform = process.env.npm_config_platform || process.platform;
+    return platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
 }
 
 const DENO_LATEST_URL = 'https://api.github.com/repos/denoland/deno/releases/latest';
@@ -86,6 +84,12 @@ function downloadFile(url, dest, label) {
                     process.stdout.write(`\r  Downloading ${label}... ${pct}%  (${(downloaded / 1e6).toFixed(1)} MB)`);
                 }
             });
+            // A dropped connection never ends the pipe, so fail here instead of hanging the install
+            res.on('error', (err) => {
+                file.destroy();
+                process.stdout.write('\n');
+                reject(err);
+            });
             res.pipe(file);
             file.on('finish', () => {
                 file.close();
@@ -136,6 +140,9 @@ async function downloadYtdlp() {
 
     console.log('  🎬 Downloading yt-dlp...');
     const binaryName = getYtdlpBinaryName();
+    // Downloaded under a temporary name and renamed once verified, so an interrupted
+    // install never leaves a broken bin/yt-dlp that the next install would skip
+    const tmpPath = `${outputPath}.download`;
 
     try {
         const tag = process.env.YTDLP_VERSION || (await getLatestTag(YTDLP_LATEST_URL));
@@ -143,7 +150,7 @@ async function downloadYtdlp() {
         console.log(`  Version: ${tag}`);
         console.log(`  Binary: ${binaryName}`);
 
-        await downloadFile(downloadUrl, outputPath, 'yt-dlp');
+        await downloadFile(downloadUrl, tmpPath, 'yt-dlp');
 
         const sums = await fetchText(`https://github.com/yt-dlp/yt-dlp/releases/download/${tag}/SHA2-256SUMS`);
         const entry = sums
@@ -151,17 +158,18 @@ async function downloadYtdlp() {
             .map((l) => l.trim().split(/\s+/))
             .find(([, file]) => file && file.replace(/^\*/, '') === binaryName);
         if (!entry) {
-            fs.unlinkSync(outputPath);
             throw new Error(`no checksum published for ${binaryName}`);
         }
-        verifyChecksum(outputPath, entry[0], 'yt-dlp');
+        verifyChecksum(tmpPath, entry[0], 'yt-dlp');
 
         if (process.platform !== 'win32') {
-            fs.chmodSync(outputPath, 0o755);
+            fs.chmodSync(tmpPath, 0o755);
         }
+        fs.renameSync(tmpPath, outputPath);
 
         console.log(`  ✓ yt-dlp installed to bin/${outputName}`);
     } catch (err) {
+        fs.rmSync(tmpPath, { force: true });
         console.error(`  ✗ Failed to download yt-dlp: ${err.message}`);
         console.error('    You can manually download it from: https://github.com/yt-dlp/yt-dlp/releases');
         markFailure();
@@ -183,6 +191,7 @@ async function downloadDeno() {
     }
 
     console.log('  Downloading Deno...');
+    const zipPath = path.join(BIN_DIR, info.zip);
 
     try {
         const tag = process.env.DENO_VERSION || (await getLatestTag(DENO_LATEST_URL));
@@ -190,7 +199,6 @@ async function downloadDeno() {
         console.log(`  Version: ${tag}`);
         console.log(`  Binary: ${info.zip}`);
 
-        const zipPath = path.join(BIN_DIR, info.zip);
         await downloadFile(downloadUrl, zipPath, 'deno');
 
         // Deno publishes <zip>.sha256sum, sha256sum format on Unix and a Get-FileHash table on Windows
@@ -213,13 +221,15 @@ async function downloadDeno() {
 
         fs.unlinkSync(zipPath);
 
-        // Ensure executable
         if (process.platform !== 'win32') {
             fs.chmodSync(outputPath, 0o755);
         }
 
         console.log(`  ✓ Deno installed to bin/${info.exe}`);
     } catch (err) {
+        // Deno wasn't there when this started, so anything left now is half-done
+        fs.rmSync(zipPath, { force: true });
+        fs.rmSync(outputPath, { force: true });
         console.error(`  ✗ Failed to download Deno: ${err.message}`);
         console.error('    You can manually download it from: https://github.com/denoland/deno/releases');
         console.error('    Place the binary in the bin/ folder.');
