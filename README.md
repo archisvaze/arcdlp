@@ -357,6 +357,33 @@ macOS dmg (Apple Silicon) and attaches them to a draft release. The macOS app is
 ad-hoc signed in `scripts/after-pack.js`, and the workflow opens the dmg and
 checks the signature and the bundled tools before uploading it.
 
+#### Making a release
+
+Merging into `main` doesn't start a release. Pushing a version tag does.
+
+1. Set the new version in `package.json` and write the notes in
+   `release_notes.md` (they become the release description)
+2. Merge into `main`
+3. Tag the merged `main` with the same version as `package.json` and push the
+   tag:
+
+   ```bash
+   git checkout main
+   git pull
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+4. When the workflow finishes, a draft release with all the downloads appears
+   under **Releases**. Check it and click **Publish**. The in-app update check
+   only sees published releases, so users aren't told about the update until
+   then
+
+To test the builds without releasing anything, open the **Actions** tab, pick
+**Release builds** and click **Run workflow** on your branch. It builds all
+three platforms and keeps the files as workflow artifacts, but doesn't create a
+release.
+
 ### Project Structure
 
 ```
