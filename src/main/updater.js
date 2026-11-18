@@ -1,5 +1,4 @@
-// Update Checker
-// Checks GitHub Releases API for newer versions.
+// ArcDLP update check against the latest GitHub release. Runs at startup and from the About tab.
 
 const { net } = require('electron');
 const { log, logError } = require('./utils');
@@ -39,8 +38,7 @@ async function checkForUpdates(currentVersion) {
     }
 }
 
-// Handles 1.2.3, 1.2,
-
+// Compares dotted versions part by part (1.5.10 is newer than 1.5.2), ignoring suffixes like -beta
 function isNewer(a, b) {
     const parse = (v) =>
         v
@@ -62,7 +60,18 @@ function isNewer(a, b) {
 }
 
 function fetchJSON(url) {
-    return new Promise((resolve, reject) => {
+    return new Promise((done, fail) => {
+        // Every outcome clears the timeout, so a finished check leaves no timer behind
+        let timer = null;
+        const resolve = (value) => {
+            clearTimeout(timer);
+            done(value);
+        };
+        const reject = (err) => {
+            clearTimeout(timer);
+            fail(err);
+        };
+
         const request = net.request({
             url,
             method: 'GET',
@@ -86,7 +95,7 @@ function fetchJSON(url) {
             response.on('end', () => {
                 try {
                     resolve(JSON.parse(body));
-                } catch (err) {
+                } catch {
                     reject(new Error('Invalid JSON from GitHub API'));
                 }
             });
@@ -100,8 +109,7 @@ function fetchJSON(url) {
             reject(err);
         });
 
-        // 10s timeout
-        setTimeout(() => {
+        timer = setTimeout(() => {
             request.abort();
             reject(new Error('Update check timed out'));
         }, 10000);

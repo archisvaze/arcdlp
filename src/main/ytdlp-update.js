@@ -1,5 +1,5 @@
-// yt-dlp Updater
-// Downloads the latest yt-dlp into userData/bin, checked against the SHA-256 sums yt-dlp publishes.
+// Settings > Dependencies > Update. Downloads the latest yt-dlp into userData/bin,
+// checked against the SHA-256 sums yt-dlp publishes.
 
 const { app, net } = require('electron');
 const crypto = require('crypto');

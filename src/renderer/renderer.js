@@ -1,9 +1,9 @@
 let videoInfo = null;
 let presets = [];
 let selectedPreset = null;
-// I keep chapter picks per video so they reset on each fetch.
+// Chapter options for the video on screen, reset on every fetch
 let selectedChapters = { embed: false, split: false };
-// Same for playlist batches.
+// Chapter options for a playlist batch
 let playlistChapters = { embed: false, split: false };
 let isFetching = false;
 let historyCache = [];
@@ -68,7 +68,7 @@ const $plItemCount = $('plItemCount');
 const $plFormatSelect = $('plFormatSelect');
 const $plDownloadBtn = $('plDownloadBtn');
 
-// I wire these after DOM is ready, ids are in index.html.
+// Chapter options
 const $chapterOptions = $('chapterOptions');
 const $optEmbed = $('optEmbedChapters');
 const $optSplit = $('optSplitChapters');
@@ -172,6 +172,7 @@ window.api.onQueueUpdate((data) => {
         } else {
             showToast(`${completed} download${completed !== 1 ? 's' : ''} complete ✓`, 'success');
         }
+        maybeShowThanks();
     }
 });
 
@@ -225,6 +226,16 @@ document.addEventListener('drop', (e) => {
     switchTab('download');
     $url.value = dropped;
     doFetch();
+});
+
+// Ctrl+V / Cmd+V on the Download tab fills the URL box even when it isn't focused, like the
+// Paste button. Text fields keep their normal paste.
+document.addEventListener('paste', (e) => {
+    if (!$('tab-download').classList.contains('active') || $('thanksDialog').open) return;
+    const focused = document.activeElement;
+    if (focused && (focused.matches('input:not([type="checkbox"]), textarea') || focused.isContentEditable)) return;
+    e.preventDefault();
+    useClipboardText(e.clipboardData.getData('text/plain'));
 });
 
 // The Fetch button turns into Stop while a playlist or collection is loading
@@ -307,8 +318,7 @@ async function doFetch() {
         return;
     }
 
-    // Single video add to fetch queue
-    // Prevent duplicate URLs already in the queue and still fetching
+    // Single videos go through the fetch panel, skip a URL that's already being fetched
     const alreadyQueued = fetchQueue.find((item) => item.url === url && item.status === 'fetching');
     if (alreadyQueued) {
         showToast('Already fetching this URL');
@@ -327,7 +337,7 @@ function cleanIpcError(msg) {
 
 function friendlyFetchError(msg) {
     if (msg.includes('yt-dlp not found') || msg.includes('Cannot run yt-dlp')) {
-        return 'yt-dlp binary not found. Run `npm install` to download it.';
+        return 'yt-dlp could not start. Reinstall ArcDLP, or run npm install if you build from source.';
     }
     if (msg.includes('Unsupported URL') || msg.includes('No video formats')) {
         return 'This URL is not supported or the video is unavailable.';
@@ -434,7 +444,6 @@ async function processFetchQueue() {
 
     isFetchProcessing = false;
 
-    // Process next item in queue
     const hasMore = fetchQueue.find((item) => item.status === 'fetching');
     if (hasMore) {
         processFetchQueue();
@@ -584,7 +593,6 @@ function renderFetchPanel() {
         })
         .join('');
 
-    // Attach click listeners
     $fetchPanelItems.querySelectorAll('.fp-item').forEach((el) => {
         el.addEventListener('click', (e) => {
             if (e.target.closest('[data-action]')) return;
@@ -638,20 +646,26 @@ function doClear() {
     $url.focus();
 }
 
+// Shared by the Paste button and Ctrl+V. Fills the URL box only, fetching stays a click.
+function useClipboardText(text) {
+    const url = (text || '').trim();
+    if (!url) return;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        showError('Please enter a valid URL starting with http:// or https://');
+        return;
+    }
+    hideError();
+    $url.value = url;
+    $url.focus();
+}
+
 function doPaste() {
-    navigator.clipboard.readText().then((text) => {
-        const url = text.trim();
-        if (!url) return;
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            showError('Please enter a valid URL starting with http:// or https://');
-            return;
-        }
-        hideError();
-        $url.value = url;
-        $url.focus();
-    }).catch((err) => {
-        showError('Failed to read clipboard: ' + err.message);
-    });
+    navigator.clipboard
+        .readText()
+        .then(useClipboardText)
+        .catch((err) => {
+            showError('Failed to read clipboard: ' + err.message);
+        });
 }
 
 function showClearBtn() {
@@ -685,7 +699,6 @@ async function fetchPlaylist(url) {
 }
 
 async function fetchInstaCollection(url) {
-    // Check Instagram auth first
     const instaAuth = await window.api.checkInstaAuth();
     if (!instaAuth) {
         throw new Error('Instagram login required. Sign in via Settings first.');
@@ -698,7 +711,6 @@ async function fetchInstaCollection(url) {
 
     showPlaylist();
 
-    // Update badge to say COLLECTION instead of PLAYLIST
     const badge = document.querySelector('.playlist-badge');
     if (badge) badge.textContent = 'COLLECTION';
 
@@ -797,7 +809,7 @@ function showCard() {
     updateChapterOptions();
 }
 
-// I only show chapters when the video actually has them. Split implies embed.
+// Shown only when the video has chapters. Split takes over from Embed, so Embed is locked while Split is on.
 function updateChapterOptions() {
     if (!$chapterOptions) return;
     const hasChapters = Array.isArray(videoInfo?.chapters) && videoInfo.chapters.length > 0;
@@ -808,29 +820,24 @@ function updateChapterOptions() {
     $optSplit.checked = selectedChapters.split;
 }
 
-if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', () => {
-        $('optEmbedChapters')?.addEventListener('change', (e) => {
-            selectedChapters.embed = e.target.checked;
-            updateChapterOptions();
-        });
-        $('optSplitChapters')?.addEventListener('change', (e) => {
-            selectedChapters.split = e.target.checked;
-            updateChapterOptions();
-        });
-        $('plOptEmbedChapters')?.addEventListener('change', (e) => {
-            playlistChapters.embed = e.target.checked;
-            updatePlChapterOptions();
-        });
-        $('plOptSplitChapters')?.addEventListener('change', (e) => {
-            playlistChapters.split = e.target.checked;
-            updatePlChapterOptions();
-        });
-        $plFormatSelect?.addEventListener('change', updatePlChapterOptions);
-    });
-}
+$optEmbed.addEventListener('change', (e) => {
+    selectedChapters.embed = e.target.checked;
+    updateChapterOptions();
+});
+$optSplit.addEventListener('change', (e) => {
+    selectedChapters.split = e.target.checked;
+    updateChapterOptions();
+});
+$plOptEmbed.addEventListener('change', (e) => {
+    playlistChapters.embed = e.target.checked;
+    updatePlChapterOptions();
+});
+$plOptSplit.addEventListener('change', (e) => {
+    playlistChapters.split = e.target.checked;
+    updatePlChapterOptions();
+});
 
-// Same toggles for playlist batches, applies to each picked item.
+// Playlist items aren't fetched one by one, so chapters aren't known up front and the options always show
 function updatePlChapterOptions() {
     if (!$plChapterOptions) return;
     $plChapterOptions.style.display = '';
@@ -981,7 +988,6 @@ function hidePlaylist() {
     playlistSelected = new Set();
     playlistChapters = { embed: false, split: false };
     isPlaylistMode = false;
-    // Reset badge text
     const badge = document.querySelector('.playlist-badge');
     if (badge) badge.textContent = 'PLAYLIST';
 }
@@ -1110,7 +1116,6 @@ function renderQueue() {
     $queueEmpty.style.display = 'none';
     $queueToolbar.style.display = 'flex';
 
-    // Status text
     const statusParts = [];
     if (counts.downloading > 0) {
         statusParts.push(`${counts.downloading} downloading`);
@@ -1120,12 +1125,10 @@ function renderQueue() {
     if (counts.failed > 0) statusParts.push(`${counts.failed} failed`);
     $queueStatus.textContent = statusParts.join(' · ') || '0 items';
 
-    // Show/hide action buttons
     $qCancelAllBtn.style.display = isActive ? 'inline-block' : 'none';
     $qRetryFailedBtn.style.display = counts.failed > 0 ? 'inline-block' : 'none';
     $qClearDoneBtn.style.display = counts.completed > 0 || (counts.failed > 0 && !isActive) ? 'inline-block' : 'none';
 
-    // Render items
     $queueItems.innerHTML = items.map((item) => queueItemHTML(item)).join('');
     attachQueueListeners();
 }
@@ -1620,17 +1623,17 @@ async function loadSettings() {
 
         const ytdlpEl = $('depYtdlpPath');
         const ytdlpDot = document.querySelector('#depYtdlpStatus .dep-dot');
-        ytdlpEl.textContent = deps.ytdlp.found ? deps.ytdlp.path : 'Not found - run npm install';
+        ytdlpEl.textContent = deps.ytdlp.found ? deps.ytdlp.path : 'Not found. Reinstall ArcDLP to fix this';
         ytdlpDot.className = 'dep-dot ' + (deps.ytdlp.found ? 'ok' : 'missing');
 
         const ffEl = $('depFfmpegPath');
         const ffDot = document.querySelector('#depFfmpegStatus .dep-dot');
-        ffEl.textContent = deps.ffmpeg.found ? deps.ffmpeg.path : 'Not found - run npm install';
+        ffEl.textContent = deps.ffmpeg.found ? deps.ffmpeg.path : 'Not found. Reinstall ArcDLP to fix this';
         ffDot.className = 'dep-dot ' + (deps.ffmpeg.found ? 'ok' : 'missing');
 
         const denoEl = $('depDenoPath');
         const denoDot = document.querySelector('#depDenoStatus .dep-dot');
-        denoEl.textContent = deps.deno.found ? deps.deno.path : 'Not found - run npm install';
+        denoEl.textContent = deps.deno.found ? deps.deno.path : 'Not found. Reinstall ArcDLP to fix this';
         denoDot.className = 'dep-dot ' + (deps.deno.found ? 'ok' : 'missing');
     } catch {}
 
@@ -1713,10 +1716,12 @@ function showUpdateBanner() {
     const banner = $('updateBanner');
     if (!banner) return;
 
+    const current = updateInfo.current ? ` You have v${escapeHtml(updateInfo.current)}.` : '';
     banner.innerHTML =
-        `<span>A new version is available: <strong>v${escapeHtml(updateInfo.latest)}</strong></span>` +
-        `<button class="btn-sm" onclick="openExternal('${escapeHtml(updateInfo.url)}')">Download</button>` +
+        `<span><strong>ArcDLP v${escapeHtml(updateInfo.latest)} is available.</strong>${current}</span>` +
+        `<button class="btn-sm update-download-btn">Download update</button>` +
         `<button class="update-dismiss" onclick="dismissUpdateBanner()" title="Dismiss">×</button>`;
+    banner.querySelector('.update-download-btn').addEventListener('click', () => openExternal(updateInfo.url));
     banner.classList.add('visible');
 }
 
@@ -1733,8 +1738,12 @@ function renderAboutUpdate() {
         el.innerHTML =
             `<div class="about-update-available">` +
             `<span>v${escapeHtml(updateInfo.latest)} is available</span>` +
-            `<a href="#" onclick="openExternal('${escapeHtml(updateInfo.url)}'); return false;">View release</a>` +
+            `<a href="#">View release</a>` +
             `</div>`;
+        el.querySelector('a').addEventListener('click', (e) => {
+            e.preventDefault();
+            openExternal(updateInfo.url);
+        });
     } else if (updateInfo && !updateInfo.hasUpdate && !updateInfo.error) {
         el.textContent = "You're on the latest version";
     } else {
@@ -1772,8 +1781,125 @@ async function doCheckForUpdates() {
     }
 }
 
+// More apps by me. Shown in the About tab and the thank-you dialog. Static on purpose,
+// nothing is fetched, so the privacy policy stays true. utm tags only reach my own sites on click.
+const MORE_APPS = [
+    {
+        icon: '📌',
+        name: 'PinBoard',
+        text: 'Download whole Pinterest boards. Images, GIFs and videos in full quality.',
+        url: 'https://www.getpinboard.com/',
+    },
+    {
+        icon: '✍️',
+        name: 'GetPDFSigned',
+        text: 'Get a PDF signed by anyone. Send a link, they sign on their phone.',
+        url: 'https://getpdfsigned.com/',
+    },
+];
+
+function renderMoreApps(containerId, campaign) {
+    const container = $(containerId);
+    if (!container) return;
+    container.innerHTML = MORE_APPS.map(
+        (a, i) => `
+        <button class="more-app" data-idx="${i}">
+            <span class="more-app-icon">${a.icon}</span>
+            <span class="more-app-info">
+                <span class="more-app-name">${escapeHtml(a.name)}</span>
+                <span class="more-app-text">${escapeHtml(a.text)}</span>
+            </span>
+            <span class="more-app-arrow">↗</span>
+        </button>`,
+    ).join('');
+    container.querySelectorAll('.more-app').forEach((el) => {
+        el.addEventListener('click', () => {
+            const entry = MORE_APPS[parseInt(el.dataset.idx)];
+            openExternal(`${entry.url}?utm_source=arcdlp&utm_medium=app&utm_campaign=${campaign}`);
+        });
+    });
+}
+
+// Asks the main process once per finished queue. It says yes only the first time on each app version.
+async function maybeShowThanks() {
+    try {
+        const show = await window.api.claimThanks();
+        if (show) showSupportDialog('download');
+    } catch {}
+}
+
+// Same dialog for both: 'download' after the first finished download, 'support' from the Support button
+function showSupportDialog(mode) {
+    const dialog = $('thanksDialog');
+    if (!dialog || dialog.open) return;
+    const isDownload = mode === 'download';
+    $('thanksEmoji').textContent = isDownload ? '🎉' : '💛';
+    $('thanksTitle').textContent = isDownload ? 'Your download is done!' : 'Support ArcDLP';
+    // Back to the centre every time it opens, even if it was dragged last time
+    dialog.style.margin = '';
+    dialog.style.left = '';
+    dialog.style.top = '';
+    dialog.style.right = '';
+    dialog.style.bottom = '';
+    dialog.showModal();
+}
+
+// Drag the dialog by its top part (emoji and title). Kept inside the window.
+(function makeThanksDialogDraggable() {
+    const dialog = $('thanksDialog');
+    const handle = $('thanksDragHandle');
+    if (!dialog || !handle) return;
+
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    handle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        const rect = dialog.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = rect.left;
+        startTop = rect.top;
+        // Switch from auto-centred to fixed coordinates at the same spot, so it doesn't jump
+        dialog.style.margin = '0';
+        dialog.style.right = 'auto';
+        dialog.style.bottom = 'auto';
+        dialog.style.left = `${rect.left}px`;
+        dialog.style.top = `${rect.top}px`;
+        handle.setPointerCapture(e.pointerId);
+    });
+
+    handle.addEventListener('pointermove', (e) => {
+        if (!handle.hasPointerCapture(e.pointerId)) return;
+        const maxLeft = Math.max(0, window.innerWidth - dialog.offsetWidth);
+        const maxTop = Math.max(0, window.innerHeight - dialog.offsetHeight);
+        const left = Math.min(Math.max(0, startLeft + e.clientX - startX), maxLeft);
+        const top = Math.min(Math.max(0, startTop + e.clientY - startY), maxTop);
+        dialog.style.left = `${left}px`;
+        dialog.style.top = `${top}px`;
+    });
+})();
+
+function closeThanksDialog() {
+    const dialog = $('thanksDialog');
+    if (dialog && dialog.open) dialog.close();
+}
+
+// Clicking the dimmed area outside the dialog closes it too. Backdrop clicks report the dialog
+// as their target, so also check the click landed outside the box (not on its padding).
+$('thanksDialog')?.addEventListener('click', (e) => {
+    if (e.target !== e.currentTarget) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!inside) closeThanksDialog();
+});
+
 async function init() {
     addLog('App starting...');
+    renderMoreApps('aboutMoreApps', 'about');
+    renderMoreApps('thanksMoreApps', 'thanks');
 
     try {
         const info = await window.api.getAppInfo();
@@ -1791,7 +1917,7 @@ async function init() {
 
         if (missing.length > 0) {
             const banner = $('depBanner');
-            banner.textContent = `⚠ Missing: ${missing.join(', ')}. Run npm install to download them.`;
+            banner.textContent = `⚠ Missing: ${missing.join(', ')}. Reinstall ArcDLP to fix this (building from source? Run npm install).`;
             banner.classList.add('visible');
         }
     } catch (e) {
@@ -1803,6 +1929,20 @@ async function init() {
     try {
         historyCache = await window.api.getHistory();
         updateHistoryCount();
+    } catch {}
+
+    // The queue lives in the main process. On macOS the window can close and reopen while
+    // downloads keep running, so load what's already there instead of starting empty.
+    try {
+        const items = await window.api.queueGetAll();
+        const counts = await window.api.queueGetCounts();
+        // Skip if a live queue update already arrived while we were asking, it's newer
+        if (items.length > 0 && queueData.items.length === 0) {
+            queueData = { items, counts, isActive: counts.downloading + counts.pending > 0 };
+            wasQueueActive = queueData.isActive;
+            renderQueue();
+            updateQueueCount();
+        }
     } catch {}
 
     try {

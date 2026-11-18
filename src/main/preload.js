@@ -1,5 +1,4 @@
-// Preload Context Bridge
-// Exposes a safe API to the renderer process.
+// window.api, the only way the page talks to the main process. Handlers live in main.js.
 
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -21,23 +20,24 @@ contextBridge.exposeInMainWorld('api', {
 
     getAppInfo: () => ipcRenderer.invoke('app:info'),
     checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+    claimThanks: () => ipcRenderer.invoke('app:claimThanks'),
 
     // History
     getHistory: () => ipcRenderer.invoke('history:get'),
     removeHistory: (videoId, extractorKey) => ipcRenderer.invoke('history:remove', videoId, extractorKey),
     clearHistory: () => ipcRenderer.invoke('history:clear'),
 
-    // Auth
+    // YouTube sign-in
     checkAuth: () => ipcRenderer.invoke('auth:check'),
     login: () => ipcRenderer.invoke('auth:login'),
     logout: () => ipcRenderer.invoke('auth:logout'),
 
-    // Instagram Auth
+    // Instagram sign-in
     checkInstaAuth: () => ipcRenderer.invoke('insta:check'),
     instaLogin: () => ipcRenderer.invoke('insta:login'),
     instaLogout: () => ipcRenderer.invoke('insta:logout'),
 
-    // Instagram Collection Scraper
+    // Instagram saved collections
     scrapeCollection: (url) => ipcRenderer.invoke('scraper:collection', url),
 
     // Playlist

@@ -1,5 +1,4 @@
-// yt-dlp Engine
-// Handles: binary resolution, video info fetching, downloading with structured progress output.
+// Everything that runs yt-dlp: finding the bundled tools, fetching info, building presets, downloading.
 
 const { spawn, execFile } = require('child_process');
 const path = require('path');
@@ -70,8 +69,8 @@ function matchesVideoCodec(vcodec, codec) {
     return true;
 }
 
-// Append --cookies flag if user is signed in.
-// Use Instagram cookies for Instagram URLs, YouTube cookies otherwise.
+// Adds --cookies when signed in: Instagram cookies for Instagram URLs, YouTube cookies otherwise.
+// Returns the temp cookie file so the caller can delete it when yt-dlp exits.
 async function appendCookieArgs(args, url) {
     try {
         if (url && url.includes('instagram.com')) {
@@ -167,7 +166,6 @@ function getDenoPath() {
     const ext = process.platform === 'win32' ? '.exe' : '';
     const binary = 'deno' + ext;
 
-    // Check extraResources (production)
     try {
         const resPath = path.join(process.resourcesPath || '', 'bin', binary);
         if (fs.existsSync(resPath)) {
@@ -178,7 +176,6 @@ function getDenoPath() {
         //
     }
 
-    // Check local bin/ (dev)
     const devPath = path.join(__dirname, '..', '..', 'bin', binary);
     if (fs.existsSync(devPath)) {
         log('Using dev deno:', devPath);
@@ -189,7 +186,7 @@ function getDenoPath() {
     return null;
 }
 
-// Build env with bundled Deno on PATH so yt-dlp can find it
+// yt-dlp looks for Deno on PATH (YouTube needs it), so put the bundled one first
 function getSpawnEnv() {
     const env = { ...process.env };
     const deno = getDenoPath();
@@ -218,7 +215,7 @@ function checkDeps() {
 
 function execVersion(binPath, args) {
     return new Promise((resolve) => {
-        const proc = execFile(binPath, args, { encoding: 'utf8', timeout: 60000 }, (err, stdout) => {
+        execFile(binPath, args, { encoding: 'utf8', timeout: 60000 }, (err, stdout) => {
             if (err) return resolve(null);
             resolve(stdout);
         });
@@ -273,7 +270,7 @@ async function getVersions() {
 async function fetchInfo(url, { onLog } = {}) {
     const ytdlp = getYtdlpPath();
     if (!ytdlp) {
-        throw new Error('yt-dlp not found. Run npm install to download it.');
+        throw new Error('yt-dlp not found. Reinstall ArcDLP, or run npm install if you build from source.');
     }
 
     const _log = (msg) => {
@@ -298,8 +295,9 @@ async function fetchInfo(url, { onLog } = {}) {
         let stdout = '';
         let stderr = '';
         let killed = false;
+        let receiving = false;
 
-        // Process timeout - spawn() doesn't support timeout option
+        // Own timer instead of spawn's timeout option, so the error says it timed out
         const timer = setTimeout(() => {
             killed = true;
             try {
@@ -312,7 +310,10 @@ async function fetchInfo(url, { onLog } = {}) {
 
         proc.stdout.on('data', (d) => {
             stdout += d.toString();
-            _log('Receiving video data...');
+            if (!receiving) {
+                receiving = true;
+                _log('Receiving video data...');
+            }
         });
 
         proc.stderr.on('data', (d) => {
@@ -335,8 +336,7 @@ async function fetchInfo(url, { onLog } = {}) {
             if (code !== 0) {
                 const msg = stderr.trim() || `yt-dlp exited with code ${code}`;
                 logError('Fetch failed:', msg);
-                _log(`[diag] exit code: ${code}`);
-                _log(`[diag] stderr: ${stderr.trim().slice(0, 500)}`);
+                log(`Fetch exit code: ${code}`);
                 return reject(new Error(msg));
             }
 
@@ -351,7 +351,7 @@ async function fetchInfo(url, { onLog } = {}) {
                 const info = cleanInfo(raw);
                 _log(`Found: ${info.title}`);
                 log('Fetched:', info.title, `(${info.formats.length} formats)`);
-                resolve({ info, raw });
+                resolve({ info });
             } catch (e) {
                 logError('Parse failed:', e.message);
                 reject(new Error('Failed to parse video info'));
@@ -443,10 +443,8 @@ function buildPresets(formats, videoCodec = 'auto') {
         if (f.height) heightSet.add(f.height);
     }
 
-    // Sort descending so highest quality appears first
     const heights = [...heightSet].sort((a, b) => b - a);
 
-    // Friendly tags for well-known resolutions
     const tags = { 2160: '4K', 1440: '2K', 1080: 'Full HD', 720: 'HD' };
 
     function estimateSize(h) {
@@ -479,7 +477,6 @@ function buildPresets(formats, videoCodec = 'auto') {
 
     const presets = [];
 
-    // Only shown when video formats exist
     if (heights.length > 0) {
         presets.push({
             id: 'best',
@@ -492,7 +489,6 @@ function buildPresets(formats, videoCodec = 'auto') {
         });
     }
 
-    // One preset per unique height yt-dlp found
     for (const h of heights) {
         presets.push({
             id: `${h}p`,
@@ -505,7 +501,7 @@ function buildPresets(formats, videoCodec = 'auto') {
         });
     }
 
-    // Audio extraction and estimate size per format
+    // Audio sizes come from the highest-bitrate audio-only stream that matches each format
     const audioStreams = formats
         .filter((f) => f.vcodec === 'none' && f.acodec !== 'none' && f.filesize)
         .sort((a, b) => (b.tbr || 0) - (a.tbr || 0));
@@ -638,7 +634,9 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
             // Re-encode audio to AAC for universal playback.
             // YouTube serves Opus audio which Windows Media Player can't decode in MP4.
             // AAC is fast to encode and works on every player on every OS.
-            args.push('--postprocessor-args', 'ffmpeg:-c:v copy -c:a aac');
+            // Scoped to the merge step. A plain "ffmpeg:" key would also apply to the chapter,
+            // metadata and fixup steps and re-encode the audio again.
+            args.push('--postprocessor-args', 'Merger+ffmpeg:-c:v copy -c:a aac');
         }
         // WebM takes yt-dlp's default straight copy merge. AAC is not valid in
         // WebM, and the format sort above already biases audio to Opus.
@@ -649,7 +647,7 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
         args.push('--playlist-items', String(playlistItem));
     }
 
-    // I keep embed/split separate - split already implies embed so only one flag.
+    // Split replaces the full file with one file per chapter, so embedding is skipped when splitting
     if (splitChapters || embedChapters) {
         if (ffmpeg && ffmpeg !== 'ffmpeg') {
             if (splitChapters) args.push('--split-chapters');
@@ -674,15 +672,15 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
     const partials = callbacks.partials || [];
 
     return new Promise((resolve, reject) => {
-        // I run in outputDir because --split-chapters writes relatives here, not to -o.
+        // --split-chapters writes its files relative to the working directory, not next to -o
         const proc = spawn(ytdlp, args, { env: getSpawnEnv(), cwd: outputDir });
         if (callbacks.onSpawn) callbacks.onSpawn(proc);
 
-        // I track the full file so I can drop it after a split succeeds.
+        // The full file, deleted once a split has written the chapter files
         let mainOutputFile = null;
         let splitProducedChapters = false;
 
-        // Parse progress from both stdout and stderr
+        // Progress and step messages can arrive on either stream
         function parseLine(line) {
             if (line.startsWith('DLPROG ')) {
                 const parts = line.slice(7).trim().split(/\s+/);
@@ -755,7 +753,6 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
             log('Download completed');
             onLog('Download complete ✓');
             if (splitProducedChapters && mainOutputFile) {
-                // I drop the redundant full file, split already wrote the chapters out.
                 try {
                     fs.unlinkSync(mainOutputFile);
                     log('Removed full file after chapter split:', mainOutputFile);
@@ -771,8 +768,6 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
             logError('Download spawn error:', err.message);
             reject(new Error(`Cannot run yt-dlp: ${err.message}`));
         });
-
-        callbacks._proc = proc;
     });
 }
 
@@ -795,7 +790,7 @@ function toPlaylistItem(raw, index) {
 async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) {
     const ytdlp = getYtdlpPath();
     if (!ytdlp) {
-        throw new Error('yt-dlp not found. Run npm install to download it.');
+        throw new Error('yt-dlp not found. Reinstall ArcDLP, or run npm install if you build from source.');
     }
 
     const _log = (msg) => {
@@ -829,7 +824,7 @@ async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) 
         let buffer = '';
         let killed = false;
 
-        // Process timeout - 15 minutes for large playlists
+        // 15 minute limit for very large playlists and channels, items found by then are kept
         const timer = setTimeout(() => {
             killed = true;
             try {
@@ -837,7 +832,6 @@ async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) 
             } catch {
                 /* */
             }
-            // Partial success - return whatever we got
             if (items.length > 0) {
                 _log(`Playlist timed out after fetching ${items.length} items`);
                 resolve({ items });
@@ -849,9 +843,8 @@ async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) 
         proc.stdout.on('data', (d) => {
             buffer += d.toString();
 
-            // yt-dlp outputs one JSON object per line
+            // One JSON object per line, the last line may still be incomplete
             const lines = buffer.split('\n');
-            // Keep last (possibly incomplete) line in buffer
             buffer = lines.pop() || '';
 
             for (const line of lines) {
@@ -865,7 +858,7 @@ async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) 
                     if (onItem) onItem(item, items.length);
                     _log(`Found: ${items.length}. ${item.title}`);
                 } catch {
-                    // Not valid JSON line, skip
+                    //
                 }
             }
         });
@@ -887,7 +880,7 @@ async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) 
             cookies.removeCookieFile(cookieFile);
             if (killed) return; // already resolved/rejected by timeout
 
-            // Process any remaining buffer
+            // The last line has no trailing newline
             if (buffer.trim()) {
                 try {
                     const raw = JSON.parse(buffer.trim());
@@ -911,7 +904,7 @@ async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) 
                 return reject(new Error(msg));
             }
 
-            // Even if exit code is non-zero, if we got items, return them (partial success)
+            // A non-zero exit with items means some entries failed, the rest are still usable
             if (items.length > 0) {
                 _log(`Found ${items.length} item${items.length !== 1 ? 's' : ''} in playlist`);
                 log('Playlist fetched:', items.length, 'items');
@@ -930,7 +923,6 @@ async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) 
     });
 }
 
-// Detect if a URL looks like a playlist
 function looksLikePlaylist(url) {
     if (!url) return false;
     const u = url.toLowerCase();
@@ -957,7 +949,7 @@ function looksLikePlaylist(url) {
     }
     // SoundCloud sets
     if (u.includes('/sets/')) return true;
-    // Generic patterns
+    // Albums (Bandcamp and similar)
     if (u.includes('/album/') || u.includes('/albums/')) return true;
     // Instagram saved collections
     if (u.includes('instagram.com') && u.includes('/saved/')) return true;

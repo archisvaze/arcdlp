@@ -1,7 +1,8 @@
 {
     "name": "arcdlp",
-    "version": "1.5.1",
-    "description": "Video downloader powered by yt-dlp",
+    "version": "1.5.2",
+    "description": "Free, open source video downloader for Mac, Windows and Linux, powered by yt-dlp",
+    "homepage": "https://arcdlp.archisvaze.com",
     "main": "src/main/main.js",
     "author": "Archis",
     "license": "MIT",
@@ -13,8 +14,7 @@
         "start": "electron .",
         "build:mac": "electron-builder --mac",
         "build:win": "electron-builder --win --x64",
-        "build:linux": "electron-builder --linux --x64",
-        "build:all": "electron-builder --mac --win --linux"
+        "build:linux": "electron-builder --linux --x64"
     },
     "build": {
         "publish": null,
@@ -27,6 +27,8 @@
         "files": [
             "src/**/*",
             "node_modules/**/*",
+            "!node_modules/ffmpeg-static/ffmpeg",
+            "!node_modules/ffmpeg-static/ffmpeg.exe",
             "package.json"
         ],
         "extraResources": [
@@ -49,13 +51,12 @@
                 ]
             }
         ],
-        "afterPack": "./scripts/fix-ffmpeg-win.js",
+        "afterPack": "./scripts/after-pack.js",
         "mac": {
             "category": "public.app-category.utilities",
             "icon": "build/icon.icns",
             "target": [
-                "dmg",
-                "zip"
+                "dmg"
             ],
             "hardenedRuntime": true,
             "gatekeeperAssess": false,

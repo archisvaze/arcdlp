@@ -12,8 +12,6 @@
 
 <body>
     <div class="app">
-        <div id="depBanner" class="dep-banner"></div>
-        <div id="updateBanner" class="update-banner"></div>
         <div id="toastContainer" class="toast-container"></div>
 
         <div class="titlebar"></div>
@@ -106,7 +104,8 @@
                                         <span class="options-label">Split into chapter files</span>
                                     </label>
                                 </div>
-                                <div class="options-hint">Split saves each chapter as its own file and removes the full file.</div>
+                                <div class="options-hint">Split saves each chapter as its own file and removes the full
+                                    file.</div>
                             </div>
 
                             <button id="dlBtn" class="btn-download" onclick="doDownload()">
@@ -174,7 +173,8 @@
                                             <span class="options-label">Split into chapter files</span>
                                         </label>
                                     </div>
-                                    <div class="options-hint">Applies to each selected item. Split saves every chapter as its own file and removes the full file.</div>
+                                    <div class="options-hint">Applies to each selected item. Split saves every chapter
+                                        as its own file and removes the full file.</div>
                                 </div>
                                 <button id="plDownloadBtn" class="btn-download" onclick="doPlaylistDownload()">
                                     Add Selected to Queue
@@ -313,7 +313,8 @@
                     <div class="settings-hint">
                         If a video doesn't offer the chosen codec, the best available one
                         is used instead. H.264 plays everywhere but tops out at 1080p on YouTube. AV1 and VP9 give
-                        smaller files at the same quality. VP9 downloads are saved as WebM, the rest as MP4.
+                        smaller files at the same quality. VP9 downloads are saved as WebM (MKV if a video has no
+                        VP9), the rest as MP4.
                     </div>
                 </div>
 
@@ -462,7 +463,7 @@
                             ">
                         <span class="about-link-icon">❤️</span> Sponsor on GitHub
                     </a>
-                    <a class="about-link" href="#" onclick="
+                    <a class="about-link about-link-coffee" href="#" onclick="
                                 openExternal('https://buymeacoffee.com/archisvaze');
                                 return false;
                             ">
@@ -471,10 +472,15 @@
                 </div>
 
                 <div class="about-section">
+                    <div class="about-section-title">More apps by me</div>
+                    <div id="aboutMoreApps" class="more-apps"></div>
+                </div>
+
+                <div class="about-section">
                     <div class="about-section-title">How it works</div>
                     <div class="about-text">
                         Paste a video or playlist URL, pick your preferred quality, and download. Videos are saved as
-                        MP4, audio as MP3.
+                        MP4 (WebM if you choose VP9 in Settings), audio as MP3, M4A or Opus.
                     </div>
                 </div>
 
@@ -491,7 +497,12 @@
                 </div>
 
                 <div class="about-footer-text">
-                    Open source. Everything runs locally on your machine. No data is sent anywhere.
+                    Open source. No accounts, no analytics, no tracking. ArcDLP only connects to the sites you
+                    download from, and to GitHub to check for updates and update yt-dlp.
+                    <a href="#" onclick="
+                                openExternal('https://arcdlp.archisvaze.com/privacy');
+                                return false;
+                            ">Privacy policy</a>
                     <br />
                     Powered by
                     <a href="#" onclick="
@@ -501,6 +512,9 @@
                 </div>
             </div>
 
+            <div id="depBanner" class="dep-banner"></div>
+            <div id="updateBanner" class="update-banner"></div>
+
             <!-- Log Panel -->
             <div class="log-panel">
                 <div class="log-header">
@@ -508,14 +522,33 @@
                     <div class="log-header-actions">
                         <button onclick="clearLog()">Clear</button>
                         <button onclick="doOpenFolder()">Open folder</button>
-                        <button class="log-support-btn"
-                            onclick="openExternal('https://github.com/sponsors/archisvaze')">♥ Support ArcDLP</button>
+                        <button class="log-support-btn" onclick="showSupportDialog('support')">♥ Support ArcDLP</button>
                     </div>
                 </div>
                 <div id="logBody" class="log-body"></div>
             </div>
         </div>
     </div>
+
+    <dialog id="thanksDialog" class="thanks-dialog">
+        <div id="thanksDragHandle" class="thanks-drag-handle" title="Drag to move">
+            <div id="thanksEmoji" class="thanks-emoji">🎉</div>
+            <div id="thanksTitle" class="thanks-title">Your download is done!</div>
+        </div>
+        <div class="thanks-text">
+            Thanks for using ArcDLP. It's free, open source and made by one developer.
+            If it saved you some time, a coffee keeps it going.
+        </div>
+        <button class="thanks-coffee" onclick="openExternal('https://buymeacoffee.com/archisvaze')">
+            ☕ Buy me a coffee
+        </button>
+        <button class="thanks-sponsor" onclick="openExternal('https://github.com/sponsors/archisvaze')">
+            ❤️ Sponsor on GitHub
+        </button>
+        <div class="thanks-more-title">More apps by me</div>
+        <div id="thanksMoreApps" class="more-apps"></div>
+        <button class="btn-sm thanks-close" onclick="closeThanksDialog()">Close</button>
+    </dialog>
 
     <script src="./renderer.js"></script>
 </body>
