@@ -1,7 +1,8 @@
 name: Release builds
 
-# Builds the Windows installer and Linux AppImage on GitHub-hosted runners.
-# Pushing a v* tag also creates a draft release with both files. macOS is still built locally.
+# Builds the Windows installer, Linux AppImage and macOS dmg (Apple Silicon) on GitHub-hosted runners.
+# Pushing a v* tag also creates a draft release with all three files.
+# macOS is ad-hoc signed by scripts/fix-ffmpeg-win.js (afterPack), the same as a local build.
 # Windows signing runs once the SIGNPATH_ORGANIZATION_ID variable and SIGNPATH_API_TOKEN secret exist.
 
 on:
@@ -103,8 +104,54 @@ jobs:
             dist/ArcDLP-*.AppImage.zsync
           if-no-files-found: error
 
+  mac:
+    # Apple Silicon (M1) runner, so npm ci fetches the arm64 Deno and ffmpeg and the universal yt-dlp_macos
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build dmg
+        run: npx electron-builder --mac --arm64 --publish never
+
+      # Opens the dmg the way users get it, then checks the signature and that every bundled tool runs
+      - name: Verify the app inside the dmg
+        run: |
+          set -euo pipefail
+          DMG=$(ls dist/ArcDLP-*-arm64.dmg)
+          MNT=$(mktemp -d)
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MNT"
+          APP="$MNT/ArcDLP.app"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          "$APP/Contents/Resources/bin/yt-dlp" --version
+          "$APP/Contents/Resources/bin/deno" --version
+          "$APP/Contents/Resources/ffmpeg-static/ffmpeg" -version > /dev/null
+          echo "ffmpeg runs"
+          # Only a warning: the app still works, it would just be bigger than it needs to be
+          if [ -e "$APP/Contents/Resources/app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg" ]; then
+            echo "::warning::A second ffmpeg copy is still bundled in app.asar.unpacked (check the files excludes in package.json)"
+          fi
+          du -sh "$APP"
+          hdiutil detach "$MNT" || hdiutil detach -force "$MNT"
+
+      - name: Upload dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: dist/ArcDLP-*-arm64.dmg
+          if-no-files-found: error
+
   release:
-    needs: [windows, linux]
+    needs: [windows, linux, mac]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -124,6 +171,7 @@ jobs:
             cp artifacts/windows-unsigned/*.exe upload/
           fi
           cp artifacts/linux/* upload/
+          cp artifacts/mac/*.dmg upload/
 
       - uses: softprops/action-gh-release@v2
         with:

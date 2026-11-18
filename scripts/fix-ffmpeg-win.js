@@ -15,6 +15,21 @@ exports.default = async function (context) {
         }
     }
 
+    // Stop the build if a bundled tool is missing. The app uses these copies in Resources, and
+    // ffmpeg is no longer duplicated inside app.asar.unpacked, so there is no fallback copy.
+    const exe = platform === 'win32' ? '.exe' : '';
+    const required = [
+        path.join(resDir, 'bin', 'yt-dlp' + exe),
+        path.join(resDir, 'bin', 'deno' + exe),
+        path.join(resDir, 'ffmpeg-static', 'ffmpeg' + exe),
+    ];
+    const missing = required.filter((p) => !fs.existsSync(p));
+    if (missing.length > 0) {
+        throw new Error(
+            `Bundled tools missing: ${missing.map((p) => path.relative(context.appOutDir, p)).join(', ')}. Run npm install on the platform you are building for.`,
+        );
+    }
+
     if (platform === 'darwin') {
         const binaries = [
             path.join(resDir, 'bin', 'yt-dlp'),

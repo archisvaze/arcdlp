@@ -1,42 +1,21 @@
-## What's New in v1.5.1
+## What's New in v1.5.2
 
-### 📑 Chapters
+### ⚡ Improvements
 
-- **Embed chapters** - Chapter markers are saved inside the video or audio file, so players like VLC and IINA let you jump between them
-- **Split into chapter files** - Saves each chapter as its own file, handy for albums, podcasts and courses. The full file is removed afterwards
-- The options appear on videos that have chapters, and in the playlist footer for whole batches
-
----
-
-## Also new since v1.4.3 (from v1.5.0)
-
-### 🔒 Security update
-
-- Electron upgraded from 33 to 44, with current Chromium security fixes
-- Dropping a link or file on the window can no longer replace the app with a web page
-- Fixed a bug where specially crafted playlist entries could run code inside the app
-- YouTube and Instagram sign-in cookies are now kept in the app's private data folder and deleted after each download, instead of a shared temp file
-
-### ✨ New
-
-- **Multi-video posts** - Instagram carousels, Reddit galleries and X posts with several videos now open as a list you can pick from, instead of failing
-- **Update yt-dlp from Settings** - When a site breaks, update yt-dlp in one click without waiting for a new ArcDLP release
-- **Proxy support** - Settings > Network accepts HTTP, HTTPS and SOCKS proxies
-- **Stop button** - Stop a playlist or Instagram collection fetch midway and keep what was found
-- **Drag and drop** - Drop a link onto the window to fetch it
-- **Song info in audio files** - MP3, M4A and Opus downloads now include title, artist and cover art
-- **Merge progress** - The queue shows Merging, Converting audio and similar steps, so long videos no longer look stuck
+- **Smaller app**: ffmpeg was accidentally bundled twice. It's now included once, so the installed app is about 45 MB smaller on Mac and about 80 MB smaller on Windows
+- **Better audio on MP4s with chapters**: embedding or splitting chapters no longer re-encodes the audio a second time, so it's faster and keeps full quality
+- **Update banner**: it now sits at the bottom of the window with a clear Download update button, instead of covering the tabs
+- **Clearer messages**: if a built-in tool is missing, the app now tells you to reinstall ArcDLP instead of showing developer instructions
+- **About tab**: now lists every format ArcDLP saves (MP4, WebM, MP3, M4A, Opus) and explains exactly what the app connects to, with a link to the privacy policy
 
 ### 🐛 Fixes
 
-- The VP9 codec setting no longer fails on videos that don't offer VP9. Those are saved as MKV instead
-- TikTok video links and YouTube Mix links no longer open as playlists
-- Fetch errors now say what went wrong, and the sign-in prompt for age-restricted videos works again
-- Cancelling a download removes its partial files
-- Reset now fully signs you out on Windows
-- Linux: the AppImage no longer needs libfuse2 and supports delta updates through AppImageUpdate, AM and AppImageLauncher
+- macOS: if you close the window while downloads are running and reopen it from the Dock, the Queue tab now shows your downloads again instead of looking empty
 
-Thanks to @kirakenjiro for #37 and @anupamme for #32.
+### 🛠 Behind the scenes
+
+- The Mac app is now built by GitHub Actions, like Windows and Linux. Every build is checked automatically before it's uploaded (signature, plus yt-dlp, Deno and ffmpeg all start), so a broken Mac download like the first 1.5.1 upload can't slip through again
+- A build now stops if yt-dlp, Deno or ffmpeg is missing, instead of shipping an app that can't download
 
 ### Platform Support
 
@@ -48,8 +27,8 @@ Thanks to @kirakenjiro for #37 and @anupamme for #32.
 
 ### Download
 
-- macOS: `ArcDLP-1.5.1-arm64.dmg`
-- Windows: `ArcDLP-Setup-1.5.1.exe`
-- Linux: `ArcDLP-1.5.1.AppImage`
+- macOS: `ArcDLP-1.5.2-arm64.dmg`
+- Windows: `ArcDLP-Setup-1.5.2.exe`
+- Linux: `ArcDLP-1.5.2.AppImage`
 
 [Code signing policy](https://arcdlp.archisvaze.com/#code-signing)

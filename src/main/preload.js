@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('api', {
 
     getAppInfo: () => ipcRenderer.invoke('app:info'),
     checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+    claimThanks: () => ipcRenderer.invoke('app:claimThanks'),
 
     // History
     getHistory: () => ipcRenderer.invoke('history:get'),

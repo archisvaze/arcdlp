@@ -701,9 +701,10 @@ button {
 
 .dep-banner {
     display: none;
+    flex-shrink: 0;
     padding: 10px 32px;
     background: var(--warning-soft);
-    border-bottom: 1px solid rgba(255, 149, 0, 0.15);
+    border-top: 1px solid rgba(255, 149, 0, 0.15);
     font-size: 12px;
     color: #cc7700;
 }
@@ -720,11 +721,12 @@ button {
 
 .update-banner {
     display: none;
-    padding: 10px 32px;
+    flex-shrink: 0;
+    padding: 8px 16px 8px 32px;
     background: var(--accent-soft);
-    border-bottom: 1px solid rgba(0, 122, 255, 0.15);
-    font-size: 12px;
-    color: var(--accent);
+    border-top: 1px solid rgba(0, 122, 255, 0.2);
+    font-size: 13px;
+    color: var(--text);
     align-items: center;
     gap: 12px;
 }
@@ -739,6 +741,19 @@ button {
 
 .update-banner .btn-sm {
     flex-shrink: 0;
+}
+
+.update-banner .update-download-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    font-weight: 600;
+}
+
+.update-banner .update-download-btn:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: white;
 }
 
 .update-dismiss {
@@ -1709,6 +1724,17 @@ button {
     box-shadow: var(--shadow-sm);
 }
 
+.about-link.about-link-coffee {
+    background: #ffdd00;
+    border-color: #ffdd00;
+    color: #1d1d1f;
+}
+
+.about-link.about-link-coffee:hover {
+    background: #f5d000;
+    border-color: #f5d000;
+}
+
 .about-link-icon {
     font-size: 16px;
     width: 24px;
@@ -1723,6 +1749,167 @@ button {
     padding: 20px;
     max-width: 480px;
     margin: 0 auto;
+}
+
+/* More apps by me (About tab and thank-you dialog) */
+
+.more-apps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.more-app {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.more-app:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-sm);
+}
+
+.more-app-icon {
+    font-size: 20px;
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.more-app-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.more-app-name {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.more-app-text {
+    font-size: 12px;
+    color: var(--text-2);
+    line-height: 1.4;
+}
+
+.more-app-arrow {
+    color: var(--text-3);
+    flex-shrink: 0;
+}
+
+/* Thank-you dialog */
+
+.thanks-dialog {
+    /* The reset at the top sets margin: 0 on everything, which removes the dialog's built-in centering */
+    margin: auto;
+    /* Never part of the macOS title bar drag area, even when dragged to the top */
+    -webkit-app-region: no-drag;
+    width: 380px;
+    max-width: calc(100vw - 48px);
+    padding: 24px;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    text-align: center;
+}
+
+.thanks-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.thanks-drag-handle {
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.thanks-drag-handle:active {
+    cursor: grabbing;
+}
+
+.thanks-emoji {
+    font-size: 32px;
+    margin-bottom: 6px;
+}
+
+.thanks-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.thanks-text {
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+
+.thanks-coffee {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    color: #1d1d1f;
+    background: #ffdd00;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.thanks-coffee:hover {
+    background: #f5d000;
+}
+
+.thanks-sponsor {
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.thanks-sponsor:hover {
+    border-color: var(--accent);
+}
+
+.thanks-more-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin: 20px 0 8px;
+    text-align: left;
+}
+
+.thanks-close {
+    margin-top: 16px;
 }
 
 /* Fetch Panel & Download Layout */

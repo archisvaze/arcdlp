@@ -31,6 +31,7 @@ const store = new Store({
         videoCodec: 'auto',
         proxyUrl: '',
         history: [],
+        thanksShownVersion: '',
     },
 });
 
@@ -330,6 +331,16 @@ handle('app:info', () => ({
     platform: process.platform,
     arch: process.arch,
 }));
+
+// The thank-you dialog shows once per app version, after the first finished download.
+// Returns true only the first time it's asked on this version.
+handle('app:claimThanks', () => {
+    const version = app.getVersion();
+    if (store.get('thanksShownVersion') === version) return false;
+    store.set('thanksShownVersion', version);
+    log('Thank-you dialog shown for', version);
+    return true;
+});
 
 handle('app:checkForUpdates', async () => {
     const result = await updater.checkForUpdates(app.getVersion());

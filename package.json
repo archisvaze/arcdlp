@@ -1,7 +1,8 @@
 {
     "name": "arcdlp",
-    "version": "1.5.1",
-    "description": "Video downloader powered by yt-dlp",
+    "version": "1.5.2",
+    "description": "Free, open source video downloader for Mac, Windows and Linux, powered by yt-dlp",
+    "homepage": "https://arcdlp.archisvaze.com",
     "main": "src/main/main.js",
     "author": "Archis",
     "license": "MIT",
@@ -27,6 +28,8 @@
         "files": [
             "src/**/*",
             "node_modules/**/*",
+            "!node_modules/ffmpeg-static/ffmpeg",
+            "!node_modules/ffmpeg-static/ffmpeg.exe",
             "package.json"
         ],
         "extraResources": [

@@ -273,7 +273,7 @@ async function getVersions() {
 async function fetchInfo(url, { onLog } = {}) {
     const ytdlp = getYtdlpPath();
     if (!ytdlp) {
-        throw new Error('yt-dlp not found. Run npm install to download it.');
+        throw new Error('yt-dlp not found. Reinstall ArcDLP, or run npm install if you build from source.');
     }
 
     const _log = (msg) => {
@@ -638,7 +638,9 @@ async function download({ url, formatId, outputDir, extractAudio, audioFormat, v
             // Re-encode audio to AAC for universal playback.
             // YouTube serves Opus audio which Windows Media Player can't decode in MP4.
             // AAC is fast to encode and works on every player on every OS.
-            args.push('--postprocessor-args', 'ffmpeg:-c:v copy -c:a aac');
+            // Scoped to the merge step. A plain "ffmpeg:" key also reached the chapter, metadata and
+            // fixup steps, which re-encoded the already-AAC audio a second time.
+            args.push('--postprocessor-args', 'Merger+ffmpeg:-c:v copy -c:a aac');
         }
         // WebM takes yt-dlp's default straight copy merge. AAC is not valid in
         // WebM, and the format sort above already biases audio to Opus.
@@ -795,7 +797,7 @@ function toPlaylistItem(raw, index) {
 async function fetchPlaylist(url, { onLog, onItem, onSpawn, isCancelled } = {}) {
     const ytdlp = getYtdlpPath();
     if (!ytdlp) {
-        throw new Error('yt-dlp not found. Run npm install to download it.');
+        throw new Error('yt-dlp not found. Reinstall ArcDLP, or run npm install if you build from source.');
     }
 
     const _log = (msg) => {
